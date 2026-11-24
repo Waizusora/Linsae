@@ -308,3 +308,16 @@ The stock handset's `/odm/etc/init/` directory contains an `aether/` subdirector
 - `android.hardware.secure_element@1.2-service-mediatek.rc`
 
 The running handset reports product/device codename `earth`, while the observed ODM init fragments are stored under an `aether` directory. This is a directory-layout observation only; it does not establish that these fragments are imported or active for the earth variant. Verify ODM property selection, init imports, service executable availability, and matching VINTF declarations before considering NFC or secure-element integration.
+
+
+### ODM VINTF manifest inventory
+
+The stock handset's `/odm/etc/vintf/` directory contains five manifest files:
+
+- `manifest_aether.xml`
+- `manifest_dsds.xml`
+- `manifest_qsqs.xml`
+- `manifest_ss.xml`
+- `manifest_tsts.xml`
+
+This inventory confirms that multiple ODM VINTF manifest variants are present. Filenames alone do not identify which manifest is selected on the running `earth` device, nor do they establish which HAL instances are active. Inspect manifest contents and the device's VINTF assembly/selection mechanism before reusing any declarations.
