@@ -247,7 +247,6 @@ A directory listing of `/vendor/etc/init/hw/` was captured from the stock handse
 - Diagnostic configuration: `init.aee.rc` and `init.ago.rc`
 
 This inventory confirms that the stock vendor image supplies a substantial MediaTek init configuration layer. The filenames alone do not establish which services, properties, device nodes, or actions are required for an Android 15 device configuration. Inspect imports, service declarations, triggers, and executable dependencies before deciding what belongs in a Linsae device tree.
-
 Do not copy the vendor init directory wholesale. In particular, factory/meta-mode actions, diagnostic services, USB policy, modem setup, and project-specific properties must be evaluated individually against the target build and the exact proprietary vendor image.
 
 ## Next init and ODM captures
@@ -497,7 +496,6 @@ The post-fs-data action changes permissions/ownership for:
 These paths provide clues about bundled fingerprint, camera, touch, SAR, and auxiliary hardware support. They do not establish which components are physically present or active on the exact earth handset. Some listed paths may belong to alternative board/component variants. Verify node existence, kernel drivers, runtime HALs, service access, and SELinux labels before creating device permissions. Do not copy broad permissions or the unusual metis ownership commands without checking their exact semantics.
 
 ### USB OTG storage
-
 The file creates `/mnt/media_rw/usbotg` and `/storage/usbotg`, then declares a disabled `fuse_usbotg` service using `/system/bin/sdcard`. This is an optional vendor USB-OTG storage path. Validate Android 15 storage/FUSE architecture, vold integration, USB host support, and mount lifecycle before adapting it.
 
 ### Vendor helper services
@@ -725,3 +723,27 @@ The user explicitly confirmed that audio is physically audible through the conne
 - Ordinary playback with USB Direct disabled (shared/mixer mode).
 
 This closes the earlier physical-audibility uncertainty for shared/mixer playback. The stock Redmi 12C baseline therefore has confirmed audible external USB DAC playback in both tested modes. This does not yet validate recording/input, every advertised sample format/rate, hot-unplug/reconnect, or suspend/resume behavior.
+
+### USB DAC hot-unplug/reconnect and playback recovery
+
+A further read-only USB manager capture was taken after repeatedly disconnecting and reconnecting the user's KT-384/32 HIFI USB DAC. The capture was sanitized to remove the USB serial-number line before sharing.
+
+**Current host and device state after reconnect:**
+- `host_connected=true` and `source_power=true`.
+- USB port reports `connected=true`, `current_mode=dfp`, `power_role=source`, and `data_role=host`.
+- The device is enumerated again as `KT-384/32 HIFI`, manufacturer `KTMicro`, with the previously observed USB vendor/product IDs.
+- Android USB Audio/ALSA manager again recognizes card `1`, device `0`, with `has_output=true` and `has_input=true`.
+- The USB device address changed after re-enumeration, consistent with a fresh USB enumeration.
+- The USB host connection history contains multiple connect/disconnect records. The current device remains connected at the time of capture.
+
+**Playback recovery test:**
+
+The user explicitly confirmed that after unplugging and reconnecting the DAC, audio output resumes without closing or restarting the music-player application.
+
+This verifies the following stock-firmware behavior for the tested DAC and adapter:
+1. USB host role and VBUS source operation remain functional across reconnection.
+2. The DAC is enumerated again by Android USB host manager.
+3. Android USB Audio/ALSA manager recreates recognition of the playback/capture device.
+4. Playback resumes without restarting the player application.
+
+This is a successful hot-unplug/reconnect and playback-recovery test for this specific DAC/adapter and handset firmware. It does not establish behavior for every USB DAC, adapter, power load, player application, audio format, or suspend/resume cycle. Recording/input and screen-off suspend/resume remain unverified.
