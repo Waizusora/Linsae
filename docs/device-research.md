@@ -678,10 +678,22 @@ A follow-up capture was taken with the user's KT-384/32 HIFI USB DAC attached th
 - `has_output=true` and `has_input=true`.
 - Direct reads of `/proc/asound/cards` and `/proc/asound/pcm` from the shell were denied with `Permission denied`. Treat this as a shell-access restriction; the USB manager's ALSA parser independently reports the recognized card/device.
 
-**AudioFlinger snapshot and remaining gap:**
-- The filtered AudioFlinger output reports `USB audio module: No output streams` and `No input streams`.
-- The visible primary output thread is routed to `AUDIO_DEVICE_OUT_SPEAKER`, not the USB device.
-- This may be an idle snapshot or indicate that Android audio policy has not opened/routed a USB stream. The supplied output does not distinguish those cases.
-- Therefore, USB host operation, USB enumeration, and ALSA device recognition are confirmed; active Android framework/HAL playback routing and audible output through the DAC remain unverified by this capture.
+**AudioFlinger snapshot and USB Direct playback result:**
 
-**Next validation:** While the DAC remains attached, play audio continuously and capture `dumpsys audio`, `dumpsys media.audio_flinger`, and `dumpsys media.audio_policy` (if the service exists). Confirm that the selected output device changes to USB and that sound is physically heard through the DAC. Also capture a filtered kernel log around attach/playback, redacting any device serial number. Do not interpret USB manager enumeration alone as proof of end-to-end playback.
+The first AudioFlinger capture, taken while the DAC was attached, reported:
+- `USB audio module: No output streams` and `No input streams`.
+- The visible primary mixer output thread was routed to `AUDIO_DEVICE_OUT_SPEAKER`, not the USB device.
+
+The user clarified that the player was operating in **USB Direct mode** and confirmed that audio was physically audible through the external DAC. The accompanying AudioFlinger capture still showed no USB output streams in the USB audio module, while the visible mixer threads remained routed to the speaker. This is not sufficient evidence of a failure: a direct/exclusive playback path may not appear as a normal AudioFlinger mixer output stream. The precise direct-playback implementation is not established by these dumps.
+
+**Confirmed at this stage:**
+- USB host role transition and VBUS source operation.
+- Enumeration of the KT-384/32 HIFI USB Audio device.
+- Android USB host manager recognition of playback and capture interfaces.
+- ALSA manager recognition of card 1, device 0, with output and input capability.
+- Audio policy exposure of USB headset input/output ports and dynamic PCM profiles up to 192 kHz.
+- Successful audible playback through the DAC using the player's USB Direct mode, as confirmed by the user.
+
+**Still unverified:** ordinary Android shared/mixer playback routing to the DAC, capture/input recording through the DAC, supported format negotiation in each playback mode, and reconnect/suspend/resume behavior. Do not infer these from USB Direct playback alone.
+
+For future validation, test shared-mode playback separately from USB Direct mode, then test recording, disconnect/reconnect, screen-off playback, and suspend/resume. Capture AudioFlinger and audio-policy state during each test; redact device serial numbers and other identifiers before sharing.
