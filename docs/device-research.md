@@ -336,3 +336,19 @@ The stock handset's `/odm/etc/permissions/` directory contains a `sku_aether/` s
 - `com.nxp.nfc.xml`
 
 These filenames indicate that NFC, host-card emulation, UICC-related NFC/Secure Element, and NXP/MIFARE feature declarations are present for the `sku_aether` directory. They do not prove those features are selected or supported by the running `earth` variant. Inspect XML contents and SKU selection before adding corresponding feature declarations to Linsae.
+
+
+### MediaTek init configuration: `init.mt6768.rc` lines 1–180
+
+The first 180 lines of the stock `/vendor/etc/init/hw/init.mt6768.rc` were inspected.
+
+**Imports observed:** connectivity, MT6768 USB, project, AEE, VoLTE, MAL, sensor, AGO, ST NFC, and modem init fragments. The file explicitly states that `init.modem.rc` must be the final import and that no new imports should follow it. ST NFC is referenced from both `/vendor/etc/init/hw/` and `/system/etc/init/hw/`; actual file presence and import behavior must be checked before inferring whether both are used.
+
+**Boot actions observed:**
+- `early-init` writes boot profiling and MediaTek performance controls, mounts debugfs, and changes debugfs permissions.
+- `init` creates legacy storage symlinks, a CD-ROM mountpoint, a bootdevice symlink, and applies permissions to MediaTek proc/sys nodes.
+- `charger` runs filesystem checks and mounts cache/nvcfg, adjusts power and LED node permissions, and starts fuel-gauge and light services.
+- `fs` starts `vendor.boot-hal-1-2`, invokes `mount_all /vendor/etc/fstab.mt6768 --early`, configures zram-related settings, mounts the vendor ISO image, and mounts the rescue partition.
+- `post-fs` begins additional performance and proc-node permission configuration.
+
+**Porting implications:** This file contains hardware-specific MediaTek kernel interfaces (including `/proc/perfmgr`, `/proc/bootprof`, DVFSRC sysfs paths, `/proc/lk_env`, and `/dev/spm`). These actions must not be copied wholesale into Linsae until the target kernel exposes the corresponding nodes and their expected semantics are verified. Service start commands are configuration evidence, not proof that the named services are available or running. The early fstab mount call is consistent with the previously captured MT6768 fstab; exact mount behavior and slot resolution still require verification.
