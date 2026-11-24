@@ -600,3 +600,57 @@ USB OTG storage and external USB DAC are separate test cases. The presence of a 
 For the initial earth bring-up, prioritize standard ADB and MTP, then verify PTP and RNDIS as needed. Preserve USB host/OTG and external USB DAC as explicit hardware validation requirements. Treat MIDI and Android Accessory as optional until tested. Defer mass-storage/BICR gadget modes, VIA bypass, ACM multiport, ATM, raw-bulk engineering controls, PHY tuning, and USB electrical test modes unless a demonstrated product requirement and matching kernel/vendor support justify them.
 
 Do not transplant the 940-line stock rc wholesale. Reconcile the Android 15 USB framework and init configuration with the actual kernel ConfigFS functions, UDC, HAL/services, property contexts, SELinux policy, and exact vendor firmware. No USB device makefiles, init fragments, or flashable images should be generated from this inventory alone.
+
+
+## USB kernel and Android runtime observations
+
+Read-only diagnostics were captured from the stock Redmi 12C while no USB peripheral was connected.
+
+### Kernel and controller
+
+- `uname -a` reports Linux `4.19.191-perf-ga3711314e5c2`, built for `aarch64`.
+- `ro.kernel.version` reports `4.19`.
+- The UDC class exposes `musb-hdrc`, linked under the MediaTek `mt_usb` platform device.
+- The USB platform-driver directory lists `mt_usb`, `mtk-extcon-usb`, `musb-hdrc`, and `usb_phy_generic`.
+- The USB sysfs bus listing exposes the root hub `usb1` and its root-hub interface.
+
+### Loaded USB-related modules
+
+The captured `/sys/module` listing includes:
+- `snd_usb_audio`
+- `usbcore`
+- `musb_hdrc`
+- `usb20` and `usb20_host`
+- `usb_storage`
+- `usbhid`
+- `usb_f_mtp` and `usb_f_rndis`
+- `usb_boost`
+- `c2k_usb`
+
+This is evidence that the stock kernel has loaded USB Audio, USB core, MUSB, host, storage, HID, and selected gadget-related components. It does not by itself prove that a given module is built-in versus loadable in every build, that all host functions are operational, or that Android audio routing is correctly integrated.
+
+### Android USB manager snapshot
+
+The captured `dumpsys usb` reports:
+- Current gadget function: `MTP`; function application marked true.
+- No USB device connection and no host connection at capture time.
+- USB port advertises `supported_modes=dual`.
+- Current port mode is `none`, with no power or data role active.
+- `can_change_mode`, `can_change_power_role`, and `can_change_data_role` are false in this disconnected snapshot.
+- USB HAL version 13.
+- ALSA manager reports `cards_parser=-1` in this snapshot.
+
+These are runtime observations while disconnected. They do not establish that host mode is unavailable; role-change capability and USB audio enumeration must be checked with an actual attached peripheral and the correct cable/adapter.
+
+### USB audio and OTG validation requirements
+
+The loaded `snd_usb_audio` module, together with the user's report of successfully using an external USB DAC through a USB-C-female-to-Micro-USB adapter/converter on stock firmware, provides evidence supporting USB Audio Class host-mode testing as a device requirement.
+
+Before declaring Linsae USB DAC support, test with a known-working DAC and adapter:
+1. Verify host role transition and VBUS power when the DAC is connected.
+2. Inspect USB enumeration and kernel logs for the DAC; record vendor/product IDs only if they are not personal identifiers.
+3. Check ALSA card/device creation and USB audio interface formats.
+4. Confirm Android USB audio routing through AudioFlinger/audio policy and actual playback.
+5. Test disconnect/reconnect, screen-off playback, suspend/resume, and power stability.
+
+Keep USB host storage and USB DAC as separate validation cases. A loaded kernel module is necessary evidence, not proof of complete Android framework/HAL integration. Do not write USB role-switch or audio policy configuration until the actual connected-device behavior and kernel interfaces have been inspected.
