@@ -520,3 +520,12 @@ This indicates support for multiple possible touch-controller interfaces and ori
 ### Porting conclusions
 
 The project init file adds evidence for dynamic SKU-based ODM selection, optional NFC/Secure Element integration, MediaTek trace instrumentation, fingerprint/camera/touch/SAR interfaces, USB OTG FUSE storage, and vendor calibration/NV helpers. These should be treated as audit leads rather than ready-to-port configuration. The next useful checks are the resolved SKU import paths and actual active hardware/service state; no device makefiles or init rules should be generated from these declarations alone.
+
+
+## ODM SKU resolution: earth handset versus aether NFC variant
+
+Runtime checks on the user's Redmi 12C report `ro.boot.product.hardware.sku=earth`. The directory `/vendor/odm/etc/init/` contains only `aether/`; `/vendor/odm/etc/init/earth/` does not exist. The two ODM init fragments for NFC and MediaTek Secure Element are present only in `aether/`. ODM product properties identify the handset as Redmi / `earth` / `earth_global` / model `22120RN86G`.
+
+The user confirms this Redmi 12C unit has no NFC; a related Poco variant has NFC. This supports treating the `aether` NFC/Secure Element configuration as variant-specific and excluding it from the baseline `earth` device configuration. Do not copy or enable those NFC/SE services for the non-NFC earth unit.
+
+The stock `init.project.rc` uses SKU-substituted imports under `/vendor/odm/etc/init/${ro.boot.product.hardware.sku}/`, which resolve to a missing `earth/` path on this unit. The exact init behavior for missing imported files and any resulting boot-time log messages have not yet been verified. Check relevant init logs before deciding whether the missing imports are harmless or require a guarded/variant-specific adaptation. Do not alter stock partitions or attempt to create the missing directory on the running device.
