@@ -262,3 +262,40 @@ adb shell grep -nE '^(import|service|on |#.*import)' /vendor/etc/init/hw/init.pr
 ```
 
 If `grep` is unavailable in the host shell, run it through `adb shell` as shown. Review output for serial numbers or other identifiers before sharing. The next analysis should trace imported rc files and vendor services, not reproduce the full contents of large init scripts.
+
+
+## Vendor init service and ODM inventory
+
+A read-only directory listing from the stock Redmi 12C shows a substantial set of vendor init service fragments under `/vendor/etc/init/`. The observed service fragments cover, among others:
+
+- Audio, Bluetooth, boot control, DRM, dumpstate, gatekeeper, GNSS, graphics allocator/composer, health, keymaster, media codec/OMX, memtrack, sensors, thermal, USB, Wi-Fi, and supplicant.
+- MediaTek-specific services and support: AEE, modem/RIL, NVRAM, power, PQ, GPS/AGPS, connectivity, fuel gauge, and related vendor daemons.
+- Xiaomi-specific services: display feature, misys, device information, and other Xiaomi hardware interfaces.
+- Device-specific NFC configuration: `init.vnd_earth.nfc.rc`.
+- Other fragments include camera HAL server, fingerprint, vibrator, lights, and vendor service manager configuration.
+
+This is an inventory of filenames only. A service fragment being present does not prove that its service is enabled, registered in VINTF, or required by the target Android 15 build. Determine executable paths, service users/groups, triggers, SELinux domains, init imports, and VINTF declarations before integrating any service.
+
+The `/odm/etc/` listing contains variant property files `build_earth.prop`, `build_earth_la.prop`, and `build_earth_p.prop`, as well as `build_aether.prop`. It also contains a camera configuration directory, an init directory, permissions, VINTF declarations, and device information QR configuration. The existence of multiple variant files requires checking which one is actually selected on this handset; do not merge all variant properties into one product configuration.
+
+The attempted init-script grep did not produce results: the device shell returned `/system/bin/sh: syntax error: unexpected '('`. Treat the init action/import/service inventory as pending. Use simpler commands that avoid shell metacharacters or quote the expression carefully.
+
+## Next read-only init and ODM inspection
+
+Run these commands separately and share the output in batches:
+
+```sh
+adb shell ls -lR /odm/etc/init
+adb shell ls -lR /odm/etc/vintf
+adb shell ls -lR /odm/etc/permissions
+adb shell ls -l /vendor/etc/init/hw
+```
+
+Then inspect the platform init file in manageable sections:
+
+```sh
+adb shell sed -n '1,180p' /vendor/etc/init/hw/init.mt6768.rc
+adb shell sed -n '181,360p' /vendor/etc/init/hw/init.mt6768.rc
+```
+
+Do not paste serial numbers, IMEI/MEID, or account identifiers. Do not modify or execute any vendor init script.
