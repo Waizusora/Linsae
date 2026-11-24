@@ -299,3 +299,12 @@ adb shell sed -n '181,360p' /vendor/etc/init/hw/init.mt6768.rc
 ```
 
 Do not paste serial numbers, IMEI/MEID, or account identifiers. Do not modify or execute any vendor init script.
+
+### ODM init directory observation
+
+The stock handset's `/odm/etc/init/` directory contains an `aether/` subdirectory with two service fragments:
+
+- `android.hardware.nfc@1.2-service.rc`
+- `android.hardware.secure_element@1.2-service-mediatek.rc`
+
+The running handset reports product/device codename `earth`, while the observed ODM init fragments are stored under an `aether` directory. This is a directory-layout observation only; it does not establish that these fragments are imported or active for the earth variant. Verify ODM property selection, init imports, service executable availability, and matching VINTF declarations before considering NFC or secure-element integration.
