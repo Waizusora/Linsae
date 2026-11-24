@@ -472,3 +472,51 @@ This section completes several factory-mode helper declarations and adds headset
 - Do not copy the SELinux domain declaration as a substitute for a complete policy. A matching domain, file labels, property contexts, and allowed transitions/accesses must all be validated.
 
 The supplied capture covers lines 1261–1440. The total file length has not yet been confirmed, so any content after line 1440 remains pending inspection.
+
+
+## MediaTek project init configuration: init.project.rc (174 lines)
+
+The complete stock `/vendor/etc/init/hw/init.project.rc` was captured from the Redmi 12C. It contains project-level module loading, ODM imports, device-node permissions, USB OTG storage, vendor helper services, and touch controls.
+
+### SKU-based ODM service imports
+
+The file imports NFC and MediaTek Secure Element init fragments using `${ro.boot.product.hardware.sku}` under `/vendor/odm/etc/init/`. The handset's previously captured SKU property is `earth`, while the directory inventory previously showed an `aether/` directory. This is an unresolved discrepancy. Verify the resolved runtime path, symlinks, actual files, and import errors before deciding whether NFC or Secure Element services are available for this SKU. An import statement alone does not prove that the referenced service starts or registers successfully.
+
+### Kernel module and tracing
+
+An `early-init` action invokes `modprobe -a -d /vendor/lib/modules trace_mmstat.ko` under SELinux domain `vendor_modprobe`. After `sys.boot_completed=1`, the file creates a tracefs instance named `mmstat`, configures its buffer, enables the `mmstat` event, and turns tracing on. This depends on a compatible kernel module, tracefs support, event availability, and SELinux permissions. It is diagnostic/performance instrumentation, not a generic AOSP boot requirement.
+
+### Device-node permissions and hardware clues
+
+The post-fs-data action changes permissions/ownership for:
+- `/dev/fpsensor` and several SPI fingerprint sysfs attributes.
+- Multiple camera autofocus nodes, including MAINAF/SUBAF and named actuator interfaces.
+- SMB screen communication, SPM, SAR, touch palm-sensor, flashlight, and QVGA depth-light nodes.
+- The vendor `metis` device and module parameter path.
+
+These paths provide clues about bundled fingerprint, camera, touch, SAR, and auxiliary hardware support. They do not establish which components are physically present or active on the exact earth handset. Some listed paths may belong to alternative board/component variants. Verify node existence, kernel drivers, runtime HALs, service access, and SELinux labels before creating device permissions. Do not copy broad permissions or the unusual metis ownership commands without checking their exact semantics.
+
+### USB OTG storage
+
+The file creates `/mnt/media_rw/usbotg` and `/storage/usbotg`, then declares a disabled `fuse_usbotg` service using `/system/bin/sdcard`. This is an optional vendor USB-OTG storage path. Validate Android 15 storage/FUSE architecture, vold integration, USB host support, and mount lifecycle before adapting it.
+
+### Vendor helper services
+
+- `setsarcal` runs `/system/vendor/bin/setsarcal.sh` as root, oneshot, with SELinux domain `meta_tst`.
+- `panel-info-sh` runs `/vendor/bin/init.panel_info.sh` as root, oneshot, also using `meta_tst`; it is started after boot completion.
+- `service_nv_protect` runs `/vendor/bin/misc_writer --nv_protect`, disabled/oneshot, and is started by property `vendor.service_nv_protect=start`.
+
+These are vendor-specific calibration, panel-information, and NV-protection helpers. Verify binary/script presence, property producers, SELinux policy, and whether the function is required for normal operation. Do not enable diagnostic-domain services by default or reproduce privileged behavior without a security review.
+
+### Touch edge/grip controls
+
+Three groups of property triggers react to `sys.tp.grip_enable` values `0`, `90`, and `270`. They write different mode values to:
+- `/proc/nvt_edge_reject_switch`
+- FocalTech `fts_edge_mode`
+- Another touch driver's `misc/edge_restain`
+
+This indicates support for multiple possible touch-controller interfaces and orientation-dependent edge rejection. The active driver and exact value semantics remain unverified. Do not assume all three interfaces exist on the same handset or copy all triggers into a target device tree.
+
+### Porting conclusions
+
+The project init file adds evidence for dynamic SKU-based ODM selection, optional NFC/Secure Element integration, MediaTek trace instrumentation, fingerprint/camera/touch/SAR interfaces, USB OTG FUSE storage, and vendor calibration/NV helpers. These should be treated as audit leads rather than ready-to-port configuration. The next useful checks are the resolved SKU import paths and actual active hardware/service state; no device makefiles or init rules should be generated from these declarations alone.
