@@ -68,6 +68,27 @@ A grep of `audio_policy_configuration.xml` found USB device declarations and rou
 
 This confirms USB device ports and routes are present in the main policy file as well as in the dedicated USB policy file. The grep output alone does not establish whether the dedicated USB module is loaded through an XML include or through another policy-loading mechanism. The exact include/selection mechanism remains to be verified.
 
+## Primary speaker policy and kernel audio baseline
+
+A stock `dumpsys media.audio_policy` snapshot reported the primary policy source as `/vendor/etc/audio_policy_configuration.xml` and exposed an available output device named `Speaker` (`AUDIO_DEVICE_OUT_SPEAKER`). Its declared profiles are:
+
+- PCM 16-bit, 44.1 kHz and 48 kHz, stereo.
+- PCM 32-bit, 44.1 kHz and 48 kHz, stereo.
+
+The primary output mixport supports the Speaker device, as do the deep-buffer and VoIP receive mixports. This establishes Android Audio Policy recognition and declared routing support for the internal speaker; it does not prove that the speaker was active during the diagnostic snapshot or identify the physical amplifier.
+
+The same snapshot lists `hifi_playback` as a separate mixport supporting USB Device Out and USB Headset Out. This is consistent with the separately validated USB DAC route.
+
+Kernel and sysfs inspection provided these additional observations:
+
+- Platform driver `mt6768-audio` has a bound device named `11220000.mt6768-afe-pcm`.
+- Platform driver `mt6768-mt6358` has a bound device named `sound`.
+- The I²C driver directory contains a generic `speaker_amp` driver, but its directory showed no bound I²C device symlink.
+- Kernel module `snd_soc_mt6660` was present under `/sys/module/`, indicating that the module is loaded. This alone does not establish that a physical MT6660 amplifier is present or used by this handset.
+- The module's sysfs directory exposed only `uevent` and `version`, whose metadata was inaccessible to the shell. No module version or device binding could be confirmed.
+
+**Amplifier identification remains unresolved.** Do not select an MT6660 SmartPA configuration, remove alternative amplifier support, or modify speaker tuning based only on the loaded module. The stock SmartPA parameter XML contains several possible amplifier profiles; its entries are not proof of the fitted component.
+
 ## Audio effects
 
 `/vendor/etc/audio_effects.xml` uses `audio_effects_conf` version 2.0 and registers these libraries:
