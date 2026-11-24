@@ -116,13 +116,18 @@ def resolve_download(page_url: str) -> str:
             "Tidak ada file yang diunduh."
         )
 
-    # Prefer a URL that visibly names the expected ROM archive.
+    # Prefer an explicit archive URL. If MiFirm uses a redirect endpoint,
+    # accept its clearly labelled Xiaomi-server link and verify the final file by MD5.
     for score, url, label in ordered:
         if EXPECTED_FILENAME.lower() in url.lower() or ".tgz" in url.lower():
             print(f"Download source ditemukan: {label or 'tautan firmware'}")
             return url
+    for score, url, label in ordered:
+        if score >= 80:
+            print(f"Endpoint server MiFirm ditemukan; akan mengikuti redirect: {label}")
+            return url
 
-    preview = "\n".join(f"- {label}: {url}" for _, url, label in ordered[:8])
+    preview = "\\n".join(f"- {label}: {url}" for _, url, label in ordered[:8])
     raise RuntimeError(
         "MiFirm menampilkan tautan server, tetapi tidak ada URL .tgz langsung yang "
         "dapat diverifikasi otomatis. Kandidat yang ditemukan:\n" + preview
