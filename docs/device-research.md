@@ -544,3 +544,59 @@ The user ran all three checks with empty output:
 - `service list | grep -i nfc`.
 
 Together with the confirmed `earth` SKU, absence of an `earth/` ODM init directory, NFC/Secure Element init fragments only under `aether/`, and the user's confirmation that this Redmi 12C unit has no NFC, the device baseline should be treated as **no NFC support**. Do not declare NFC package features or include NFC/Secure Element services in the earth device configuration. Empty filtered logs alone do not establish the precise init handling of the missing imports; they only show no matching message was returned by that check.
+
+
+## MediaTek USB gadget configuration: init.mt6768.usb.rc (940 lines)
+
+The complete stock `/vendor/etc/init/hw/init.mt6768.usb.rc` was captured in four ranges and reviewed through line 940. The script configures a ConfigFS USB gadget around the MediaTek `musb-hdrc` controller. It is a vendor policy inventory, not a drop-in Android 15 USB configuration.
+
+### ConfigFS gadget and functions
+
+The earlier sections (lines 1–480) establish the ConfigFS gadget at `/config/usb_gadget/g1`, use the `musb-hdrc` UDC, and create FunctionFS and vendor functions including ADB, MTP, PTP, RNDIS, MIDI, Android Accessory, Audio Source, ACM serial, mass storage, HID, and MediaTek VIA modem/diagnostic channels. The init rules select combinations using `sys.usb.config`, `sys.usb.ffs.ready`, `vendor.usb.acm_*`, and product-ID properties. Several vendor-specific VID/PID and ACM combinations are present.
+
+The script also configures charger-mode HID, resets gadget links for `none`, and applies MediaTek controller power-saving settings. USB function availability depends on the matching kernel ConfigFS functions, FunctionFS userspace services, gadget controller, property triggers, and SELinux policy. Do not copy vendor VID/PID values or every function combination into Linsae without verifying the intended product identity and host interoperability.
+
+### Mass storage, BICR, and ACM routing (lines 481–720)
+
+The middle section adds:
+- `via_bypass` combinations with VIA modem, ETS, ATC, ADB, and optional ACM serial ports.
+- `mass_storage` and `mass_storage,adb` gadget configurations.
+- `bicr` and `bicr,adb` configurations that expose `/dev/block/loop0` as a CD-ROM LUN.
+- Dynamic ACM port selection using `persist.vendor.radio.port_index`, including single and paired `gs0`–`gs3` mappings.
+
+The ACM mapping is tied to the vendor radio/modem integration. Mass-storage and BICR are legacy/vendor gadget modes and are not baseline requirements for a modern Android 15 device configuration. Do not expose arbitrary block devices or copy loop-device rules without a reviewed security and storage design.
+
+### Test, charging, PHY, and raw-bulk controls (lines 721–940)
+
+The final section adds:
+- More dual-ACM combinations: `gs0+gs1`, `gs0+gs3`, and `gs1+gs3`.
+- Android Test Mode gadget configurations `atm_gs0` and `atm_gs0gs3`, including MTP, ADB, and ACM.
+- A gadget cleanup path that disconnects the UDC, removes function symlinks, and removes the RNDIS function directory.
+- Charging-related `cdp`, `charging_yes`, and `charging_no` property handling, including MediaTek UDC `cmode`.
+- BICR controls through legacy `android_usb` sysfs paths.
+- USB/UART port switching through `/sys/devices/platform/mt_usb/portmode`.
+- USB PHY engineering controls under `/proc/mtk_usb/usb-phy0/u2_phy/`.
+- MediaTek raw-bulk channel enable/disable controls for GPS, PCV, ATC, ETS, and data.
+- USB electrical test modes (SE0 NAK, J, K, and test packet), plus vendor test/printk property forwarding.
+
+These are factory, engineering, modem, and platform-specific controls. They must not be exposed to ordinary users or enabled by default without a security review and confirmed kernel/property dependencies.
+
+### USB gadget versus USB host and external DAC
+
+This init file primarily describes the phone acting as a USB peripheral (gadget) connected to a host computer. Its `audio_source.gs3` gadget function is not evidence of USB host audio support.
+
+The user reports successfully using a USB-C-female-to-Micro-USB adapter/converter to connect an external USB DAC to this stock handset. Record this as a required real-device compatibility test for Linsae, not as proof that the gadget init rules implement it.
+
+External DAC operation must be validated separately across:
+- USB host/OTG controller and role switching, including VBUS power delivery.
+- Kernel USB host and USB Audio Class driver support.
+- Android USB device enumeration, audio policy, USB audio HAL/framework routing, and permission behavior.
+- Suspend/resume, reconnect, and power-management behavior.
+
+USB OTG storage and external USB DAC are separate test cases. The presence of a vendor `fuse_usbotg` service elsewhere in project init does not establish complete Android 15 host-storage or USB-audio compatibility.
+
+### Linsae integration priorities
+
+For the initial earth bring-up, prioritize standard ADB and MTP, then verify PTP and RNDIS as needed. Preserve USB host/OTG and external USB DAC as explicit hardware validation requirements. Treat MIDI and Android Accessory as optional until tested. Defer mass-storage/BICR gadget modes, VIA bypass, ACM multiport, ATM, raw-bulk engineering controls, PHY tuning, and USB electrical test modes unless a demonstrated product requirement and matching kernel/vendor support justify them.
+
+Do not transplant the 940-line stock rc wholesale. Reconcile the Android 15 USB framework and init configuration with the actual kernel ConfigFS functions, UDC, HAL/services, property contexts, SELinux policy, and exact vendor firmware. No USB device makefiles, init fragments, or flashable images should be generated from this inventory alone.
