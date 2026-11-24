@@ -454,7 +454,7 @@ This section exposes additional service definitions and lifecycle dependencies i
 
 **Porting implications:** The init file contains factory-only services, privileged diagnostic sockets, identity-property handling, a kernel module load, and vendor display/thermal integration. These are not generic AOSP requirements. Audit each service's binary, imports, property namespace, SELinux policy, VINTF declaration (if applicable), and runtime state. Do not enable factory services or copy privileged capabilities by default.
 
-The init.mt6768.rc audit has now been captured through line 1440. The total file length has not yet been confirmed; any content after line 1440 remains pending inspection.
+The complete init.mt6768.rc file has now been captured and reviewed through its final line. A subsequent `wc -l` check reported 1311 total lines; therefore, there is no content after line 1311 and the earlier request for lines 1312–1440 covered an empty range.
 
 
 ### MediaTek init configuration: init.mt6768.rc lines 1261–1440
