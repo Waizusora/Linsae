@@ -433,3 +433,25 @@ This section continues the stock MT6768 init configuration with runtime triggers
 **Display feature:** The file declares a displayfeature service using /system/bin/displayfeature, running as root in late_start. The supplied output ends at the next trigger, on property:init.svc.surfaceflinger=stopped, so the service's remaining actions and the rest of the init file have not yet been captured.
 
 **Porting implications:** This section reinforces that stock performance, thermal, Wi-Fi SAR, battery, and display behavior relies on vendor daemons and MediaTek kernel extensions. Treat the init script as an inventory of dependencies, not a ready-to-use Android 15 configuration. Validate each service against its executable, init imports, VINTF declarations, SELinux policy, kernel driver, and runtime state.
+
+### MediaTek init configuration: init.mt6768.rc lines 1081–1260
+
+This section exposes additional service definitions and lifecycle dependencies in the stock vendor init configuration.
+
+**DisplayFeature lifecycle:** Init stops the displayfeature service when SurfaceFlinger is stopped or restarting, and starts it when SurfaceFlinger is running. This indicates an explicit dependency on SurfaceFlinger lifecycle. The service implementation, interface, property controls, SELinux domain, and compatibility with Android 15 must be inspected before considering integration.
+
+**Thermal daemon definition:** The file defines mi_thermald at /system/vendor/bin/mi_thermald, running as root under the dedicated SELinux domain u:r:mi_thermald:s0, disabled by default and started by the earlier boot-completed action. This confirms the executable path and declared security context in the stock init configuration, but not its runtime health or complete thermal policy. Inspect its configuration, dependencies, service logs, and thermal HAL relationship.
+
+**Factory and diagnostic services:** meta_tst and factory_no_image are declared disabled/oneshot services with AT command sockets and elevated capabilities. A property gate starts meta_tst only when sys.boot_completed=1 and ro.boot.atm=enable. These are factory/diagnostic paths and must not be enabled as ordinary user-facing services. Their privileged capabilities and sockets require particular security scrutiny.
+
+**Charge logger:** charge_logger is declared as a disabled oneshot service and started after boot completion. Its role appears to be vendor charge logging; establish whether it is required for battery functionality or only diagnostics before retaining it.
+
+**Kernel module:** An on-boot action runs insmod on /vendor/lib/modules/fpsgo.ko. This creates a direct dependency on a compatible FPSGO kernel module and its dependencies. Verify module ABI, kernel configuration, signing/loading policy, and whether the module is needed by the target kernel before adapting the action.
+
+**Other vendor services:** The file declares an OSI/VSIM service and an initprop_bin helper triggered by vendor.service.nvram_init=Ready. The latter indicates a dependency on NVRAM initialization state. Service availability and relevance to the earth SKU remain unverified.
+
+**Sensitive identity properties:** Several property triggers copy persistent ODM RIL values into read-only RIL properties, including device serial/IMEI and Wi-Fi/Bluetooth MAC-related identifiers. This documents an identity-property flow only. Do not collect, publish, or hardcode actual identifier values in project files, logs, or build configuration.
+
+**Porting implications:** The init file contains factory-only services, privileged diagnostic sockets, identity-property handling, a kernel module load, and vendor display/thermal integration. These are not generic AOSP requirements. Audit each service's binary, imports, property namespace, SELinux policy, VINTF declaration (if applicable), and runtime state. Do not enable factory services or copy privileged capabilities by default.
+
+The supplied excerpt ends at line 1260 in the middle of the factory_bin service declarations. The remainder of init.mt6768.rc is still pending inspection.
