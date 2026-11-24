@@ -4,7 +4,7 @@ This directory is reserved for the Redmi 12C product and device configuration.
 
 ## Current status
 
-<badge>Research stage</badge>
+**Status:** Research stage
 
 No bootable device configuration is present yet. Product makefiles, BoardConfig, init scripts, fstab, sepolicy, overlays, and proprietary interface declarations will be added only after the exact hardware and firmware baseline has been verified.
 
