@@ -716,3 +716,12 @@ A subsequent capture was taken while testing ordinary player playback with USB D
 This establishes that Android's shared/mixer path can open an output thread and submit audio writes to the USB headset device on the stock firmware. It is distinct from the previously confirmed USB Direct playback path. Physical audibility during this particular shared-mode test should be recorded separately if not explicitly confirmed by the tester.
 
 **Updated USB DAC status:** USB host enumeration, USB Direct playback, and AudioFlinger shared/mixer routing to the USB headset are evidenced. Recording/input, format negotiation across modes, disconnect/reconnect, and suspend/resume remain unverified.
+
+
+### User confirmation: audible USB DAC playback in both modes
+
+The user explicitly confirmed that audio is physically audible through the connected KT-384/32 HIFI DAC in both:
+- USB Direct mode.
+- Ordinary playback with USB Direct disabled (shared/mixer mode).
+
+This closes the earlier physical-audibility uncertainty for shared/mixer playback. The stock Redmi 12C baseline therefore has confirmed audible external USB DAC playback in both tested modes. This does not yet validate recording/input, every advertised sample format/rate, hot-unplug/reconnect, or suspend/resume behavior.
