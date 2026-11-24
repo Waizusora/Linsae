@@ -98,7 +98,6 @@ fastboot getvar all
 
 Review the output before sharing and redact serial numbers and other identifiers. Fastboot variables are device/bootloader dependent; unavailable variables are not evidence that a feature is absent.
 
-
 ## Storage and partition observations
 
 Captured from the same stock Android 14 handset through ADB. These are observations of the running device, not a complete flash-layout specification.
@@ -152,7 +151,6 @@ The mount output reports `/metadata` backed by `md_udc` (block p12), while the b
 
 The ADB listing does not provide partition byte sizes, GPT/eMMC geometry, super logical partition group limits, boot image header version, AVB descriptors/keys/rollback indexes, or the exact contents of boot/vendor firmware images. Those must be obtained from trusted stock firmware metadata/images or read-only bootloader diagnostics. Do not write partition sizes, offsets, flash commands, or image packaging rules from block numbering alone.
 
-
 ## Boot, AVB, and Virtual A/B observations
 
 Additional read-only properties captured from the stock handset:
@@ -187,7 +185,6 @@ The properties explicitly confirm Virtual A/B and compressed snapshot support. A
 The `ro.bootimage.build.*` properties report an Android 12 / SDK 31 boot-image build identity, while the system fingerprint captured above reports Android 14. This mismatch is recorded as an observed vendor/boot image property discrepancy and must be investigated against the stock firmware package; do not assume it identifies the target OS or kernel version.
 
 A device serial property was present in the raw diagnostic output. It is intentionally omitted from this document and must not be copied into public logs, commits, or issue reports.
-
 
 ## Stock fstab and first-stage mount configuration
 
@@ -234,3 +231,34 @@ Several legacy-style emmc mount declarations refer to aliases such as `lk`, `lk2
 - Reconcile the fstab's legacy partition aliases with the live A/B by-name map.
 - Validate Android 15 encryption, metadata, F2FS, EROFS, rescue/cache, and Virtual A/B requirements before writing the final fstab.
 - Do not use the stock fstab as a ready-to-flash Linsae fstab. Do not create flash instructions from this data.
+
+## Vendor init inventory
+
+A directory listing of `/vendor/etc/init/hw/` was captured from the stock handset. It contains the following platform and project init configuration files:
+
+- `init.mt6768.rc` and `init.mt6768.usb.rc`
+- `init.project.rc` and `factory_init.project.rc`
+- `factory_init.rc`
+- `init.cgroup.rc`
+- `init.sensor_1_0.rc`
+- `init.modem.rc`
+- Connectivity configuration: `init.connectivity.rc`, `init.connectivity.common.rc`, `init_connectivity.rc`, and corresponding factory/meta variants
+- Meta/factory configuration: `meta_init.rc`, `meta_init.vendor.rc`, `meta_init.project.rc`, `meta_init.modem.rc`, and related connectivity files
+- Diagnostic configuration: `init.aee.rc` and `init.ago.rc`
+
+This inventory confirms that the stock vendor image supplies a substantial MediaTek init configuration layer. The filenames alone do not establish which services, properties, device nodes, or actions are required for an Android 15 device configuration. Inspect imports, service declarations, triggers, and executable dependencies before deciding what belongs in a Linsae device tree.
+
+Do not copy the vendor init directory wholesale. In particular, factory/meta-mode actions, diagnostic services, USB policy, modem setup, and project-specific properties must be evaluated individually against the target build and the exact proprietary vendor image.
+
+## Next init and ODM captures
+
+Continue the read-only audit with:
+
+```sh
+adb shell ls -l /vendor/etc/init/
+adb shell ls -l /odm/etc/
+adb shell grep -nE '^(import|service|on |#.*import)' /vendor/etc/init/hw/init.mt6768.rc
+adb shell grep -nE '^(import|service|on |#.*import)' /vendor/etc/init/hw/init.project.rc
+```
+
+If `grep` is unavailable in the host shell, run it through `adb shell` as shown. Review output for serial numbers or other identifiers before sharing. The next analysis should trace imported rc files and vendor services, not reproduce the full contents of large init scripts.
