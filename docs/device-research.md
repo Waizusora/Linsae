@@ -534,3 +534,13 @@ The stock `init.project.rc` uses SKU-substituted imports under `/vendor/odm/etc/
 ### Runtime log check for the missing earth ODM import path
 
 A filtered `logcat -b all -d` query was run after observing that the SKU-expanded ODM import path points to the absent `/vendor/odm/etc/init/earth/` directory. The returned output contained numerous unrelated `ENOENT` messages from framework/vendor components (including PinnerService, LockSettingsStorage, libPowerHal, and libprocessgroup), but no explicit init import error matching the filter. This is inconclusive: the output does not prove the import succeeded, that init silently ignored it, or that the missing files have no boot impact. A narrower init-tag/log query and runtime NFC feature/service checks are still required. Do not attribute the unrelated ENOENT messages to the ODM import.
+
+
+### NFC runtime capability check on the earth unit
+
+The user ran all three checks with empty output:
+- filtered init log query (`logcat -b all -d -s init`);
+- `pm list features | grep -i nfc`;
+- `service list | grep -i nfc`.
+
+Together with the confirmed `earth` SKU, absence of an `earth/` ODM init directory, NFC/Secure Element init fragments only under `aether/`, and the user's confirmation that this Redmi 12C unit has no NFC, the device baseline should be treated as **no NFC support**. Do not declare NFC package features or include NFC/Secure Element services in the earth device configuration. Empty filtered logs alone do not establish the precise init handling of the missing imports; they only show no matching message was returned by that check.
