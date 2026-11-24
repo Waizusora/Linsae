@@ -321,3 +321,18 @@ The stock handset's `/odm/etc/vintf/` directory contains five manifest files:
 - `manifest_tsts.xml`
 
 This inventory confirms that multiple ODM VINTF manifest variants are present. Filenames alone do not identify which manifest is selected on the running `earth` device, nor do they establish which HAL instances are active. Inspect manifest contents and the device's VINTF assembly/selection mechanism before reusing any declarations.
+
+
+### ODM permission feature inventory
+
+The stock handset's `/odm/etc/permissions/` directory contains a `sku_aether/` subdirectory with seven XML feature declarations:
+
+- `android.hardware.nfc.xml`
+- `android.hardware.nfc.hce.xml`
+- `android.hardware.nfc.hcef.xml`
+- `android.hardware.nfc.uicc.xml`
+- `android.hardware.se.omapi.uicc.xml`
+- `com.nxp.mifare.xml`
+- `com.nxp.nfc.xml`
+
+These filenames indicate that NFC, host-card emulation, UICC-related NFC/Secure Element, and NXP/MIFARE feature declarations are present for the `sku_aether` directory. They do not prove those features are selected or supported by the running `earth` variant. Inspect XML contents and SKU selection before adding corresponding feature declarations to Linsae.
