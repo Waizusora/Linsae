@@ -151,3 +151,39 @@ The mount output reports `/metadata` backed by `md_udc` (block p12), while the b
 ### Remaining unknowns
 
 The ADB listing does not provide partition byte sizes, GPT/eMMC geometry, super logical partition group limits, boot image header version, AVB descriptors/keys/rollback indexes, or the exact contents of boot/vendor firmware images. Those must be obtained from trusted stock firmware metadata/images or read-only bootloader diagnostics. Do not write partition sizes, offsets, flash commands, or image packaging rules from block numbering alone.
+
+
+## Boot, AVB, and Virtual A/B observations
+
+Additional read-only properties captured from the stock handset:
+
+| Property | Observed value |
+|---|---|
+| `ro.boot.slot` | `a` |
+| `ro.boot.slot_suffix` | `_a` |
+| `ro.boot.dynamic_partitions` | `true` |
+| `ro.virtual_ab.enabled` | `true` |
+| `ro.virtual_ab.compression.enabled` | `true` |
+| `ro.boot.avb_version` | `1.2` |
+| `ro.boot.vbmeta.avb_version` | `1.2` |
+| `ro.boot.vbmeta.device_state` | `locked` |
+| `ro.boot.flash.locked` | `1` |
+| `ro.boot.verifiedbootstate` | `green` |
+| `ro.boot.veritymode` | `enforcing` |
+| `ro.boot.veritymode.managed` | `yes` |
+| `ro.boot.secureboot` | `1` |
+| `ro.boot.vbmeta.hash_alg` | `sha256` |
+| `ro.boot.vbmeta.size` | `9792` (reported property; unit/interpretation not independently verified) |
+| `ro.boot.dtb_idx` | `0` |
+| `ro.boot.dtbo_idx` | `0` |
+| `ro.boot.product.hardware.sku` | `earth` |
+| `ro.boot.hwc` | `Global` |
+| `ro.boot.hwlevel` | `MP` |
+| `ro.boot.hwversion` | `6390A.19.0` |
+| `ro.boot.rsc` | `earth_qpa_ap` |
+
+The properties explicitly confirm Virtual A/B and compressed snapshot support. AVB is enabled and enforcing on the stock boot; the bootloader is locked and verified boot state is green. These are stock security-state observations, not permission or instruction to unlock, disable verification, or flash modified images.
+
+The `ro.bootimage.build.*` properties report an Android 12 / SDK 31 boot-image build identity, while the system fingerprint captured above reports Android 14. This mismatch is recorded as an observed vendor/boot image property discrepancy and must be investigated against the stock firmware package; do not assume it identifies the target OS or kernel version.
+
+A device serial property was present in the raw diagnostic output. It is intentionally omitted from this document and must not be copied into public logs, commits, or issue reports.
