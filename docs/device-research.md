@@ -697,3 +697,22 @@ The user clarified that the player was operating in **USB Direct mode** and conf
 **Still unverified:** ordinary Android shared/mixer playback routing to the DAC, capture/input recording through the DAC, supported format negotiation in each playback mode, and reconnect/suspend/resume behavior. Do not infer these from USB Direct playback alone.
 
 For future validation, test shared-mode playback separately from USB Direct mode, then test recording, disconnect/reconnect, screen-off playback, and suspend/resume. Capture AudioFlinger and audio-policy state during each test; redact device serial numbers and other identifiers before sharing.
+
+### Shared/mixer playback routing to the external USB DAC
+
+A subsequent capture was taken while testing ordinary player playback with USB Direct disabled. AudioFlinger showed a live primary-module mixer output thread routed to the connected USB DAC:
+
+- Thread: `AudioOut_15`, type `MIXER`.
+- I/O handle: `21`.
+- `Standby: no`.
+- HAL sample rate: `48000 Hz`.
+- Output device: `0x4000000 (AUDIO_DEVICE_OUT_USB_HEADSET)`.
+- `Total writes: 17644`.
+- Last write was reported 61 ms before the capture.
+- The thread reported `Blocked in write: yes` in the supplied snapshot; this is a transient thread-state observation and is not by itself evidence of a playback fault.
+- AudioFlinger local history recorded creation of an audio patch from the speaker route to `AUDIO_DEVICE_OUT_USB_HEADSET`, followed by release/recreation events as playback and routing changed.
+- The USB audio module section continued to report no separate output streams. The active USB route was visible instead in the primary audio module's mixer thread.
+
+This establishes that Android's shared/mixer path can open an output thread and submit audio writes to the USB headset device on the stock firmware. It is distinct from the previously confirmed USB Direct playback path. Physical audibility during this particular shared-mode test should be recorded separately if not explicitly confirmed by the tester.
+
+**Updated USB DAC status:** USB host enumeration, USB Direct playback, and AudioFlinger shared/mixer routing to the USB headset are evidenced. Recording/input, format negotiation across modes, disconnect/reconnect, and suspend/resume remain unverified.
