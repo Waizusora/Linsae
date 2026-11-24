@@ -187,3 +187,50 @@ The properties explicitly confirm Virtual A/B and compressed snapshot support. A
 The `ro.bootimage.build.*` properties report an Android 12 / SDK 31 boot-image build identity, while the system fingerprint captured above reports Android 14. This mismatch is recorded as an observed vendor/boot image property discrepancy and must be investigated against the stock firmware package; do not assume it identifies the target OS or kernel version.
 
 A device serial property was present in the raw diagnostic output. It is intentionally omitted from this document and must not be copied into public logs, commits, or issue reports.
+
+
+## Stock fstab and first-stage mount configuration
+
+Captured from `/vendor/etc/fstab.mt6768` on the stock Redmi 12C firmware. This is a device-specific observation and should be treated as a reference for analysis, not copied wholesale into a new ROM without reconciling Android 15 init, AVB, and partition requirements.
+
+### Dynamic logical partitions
+
+The stock fstab declares these logical mount points with EROFS and ext4 alternatives:
+
+| Logical partition | Mount point | Slot / mount flags | AVB target |
+|---|---|---|---|
+| `system` | `/system` | `wait,slotselect,logical,first_stage_mount` | `vbmeta_system` |
+| `vendor` | `/vendor` | `wait,slotselect,logical,first_stage_mount` | default AVB chain |
+| `product` | `/product` | `wait,slotselect,logical,first_stage_mount` | default AVB chain |
+| `system_ext` | `/system_ext` | `wait,slotselect,logical,first_stage_mount` | `vbmeta_system` |
+| `mi_ext` | `/mnt/vendor/mi_ext` | `wait,slotselect,logical,first_stage_mount,nofail` | `vbmeta` |
+
+The stock fstab includes EROFS and ext4 alternatives for these logical partitions. It also defines Xiaomi-specific overlay mounts sourced from `mi_ext` and `product/pangu`. Those overlays are stock-firmware behavior and must not be blindly carried into Linsae.
+
+The system and system_ext entries reference AVB public keys under `/avb`. Their compatibility and trust model must be evaluated for the target build; do not assume stock keys can verify newly built images.
+
+### Metadata and userdata
+
+The stock fstab explicitly maps:
+
+- `/dev/block/by-name/md_udc` to `/metadata` as ext4.
+- `/dev/block/by-name/userdata` to `/data` as F2FS.
+
+This resolves the earlier apparent discrepancy: the by-name partition called `metadata` is a separate entry from `md_udc`; the stock fstab uses `md_udc` for the `/metadata` mount. Do not substitute one for the other.
+
+The userdata entry includes metadata encryption using `/metadata/vold/metadata_encryption`, file-based encryption parameters, quota, resize, and checkpoint-related options. These options are security- and data-integrity-sensitive; preserve no values without validating them against the Android 15 implementation and device requirements.
+
+### Other stock mounts
+
+The fstab also references `rescue` as `/cache`, and mounts `protect1`, `protect2`, `nvdata`, `nvcfg`, `persist`, and `persistbak` under vendor paths. It declares removable storage and USB OTG vold-managed devices.
+
+Several legacy-style emmc mount declarations refer to aliases such as `lk`, `lk2`, `tee1`, `tee2`, `scp1`, `scp2`, `sspm_1`, `sspm_2`, `gz1`, `gz2`, and unsuffixed `boot`, `dtbo`, and `vbmeta`. The live by-name listing instead exposes several differently named A/B entries (for example `lk_a/lk_b`, `tee_a/tee_b`, `scp_a/scp_b`, `boot_a/boot_b`, `dtbo_a/dtbo_b`, and `vbmeta_a/vbmeta_b`). Resolve these aliases through the actual init/device symlink setup and stock firmware before using them in a new fstab.
+
+### Bring-up implications and unresolved work
+
+- Use first-stage mount semantics for required logical partitions, consistent with the target Android release.
+- Preserve correct slot selection and AVB chain relationships only after validating the target vbmeta topology.
+- Determine whether the target ROM should retain or replace Xiaomi-specific `mi_ext` overlays and `cust` behavior.
+- Reconcile the fstab's legacy partition aliases with the live A/B by-name map.
+- Validate Android 15 encryption, metadata, F2FS, EROFS, rescue/cache, and Virtual A/B requirements before writing the final fstab.
+- Do not use the stock fstab as a ready-to-flash Linsae fstab. Do not create flash instructions from this data.
