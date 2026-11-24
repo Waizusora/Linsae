@@ -654,3 +654,34 @@ Before declaring Linsae USB DAC support, test with a known-working DAC and adapt
 5. Test disconnect/reconnect, screen-off playback, suspend/resume, and power stability.
 
 Keep USB host storage and USB DAC as separate validation cases. A loaded kernel module is necessary evidence, not proof of complete Android framework/HAL integration. Do not write USB role-switch or audio policy configuration until the actual connected-device behavior and kernel interfaces have been inspected.
+
+### Connected USB DAC enumeration and Android audio snapshot
+
+A follow-up capture was taken with the user's KT-384/32 HIFI USB DAC attached through the known-working OTG adapter. This confirms host-mode enumeration and Android USB/ALSA recognition, but does not yet confirm active AudioFlinger output routing.
+
+**USB host and port state:**
+- `host_connected=true`.
+- Port mode is `dfp` (downstream-facing/host), with power role `source` and data role `host`.
+- `connected=true` is reported by the USB port manager.
+- Android USB manager lists the attached DAC at `/dev/bus/usb/001/003`.
+- The current USB gadget function remains MTP; that gadget setting is separate from the phone's host-side DAC connection.
+
+**Enumerated USB audio device:**
+- Product string: `KT-384/32 HIFI`; manufacturer string: `KTMicro`.
+- USB IDs observed: vendor `0x31B2` and product `0x0111`.
+- USB configuration exposes Audio Class interfaces for playback and capture, plus a HID interface.
+- Android USB host manager records the device as supporting both input and output audio.
+
+**ALSA/USB audio manager:**
+- `alsa_manager.cards_parser=0`.
+- Android reports ALSA card `1`, device `0`, named `USB-Audio - KT-384/32 HIFI`.
+- `has_output=true` and `has_input=true`.
+- Direct reads of `/proc/asound/cards` and `/proc/asound/pcm` from the shell were denied with `Permission denied`. Treat this as a shell-access restriction; the USB manager's ALSA parser independently reports the recognized card/device.
+
+**AudioFlinger snapshot and remaining gap:**
+- The filtered AudioFlinger output reports `USB audio module: No output streams` and `No input streams`.
+- The visible primary output thread is routed to `AUDIO_DEVICE_OUT_SPEAKER`, not the USB device.
+- This may be an idle snapshot or indicate that Android audio policy has not opened/routed a USB stream. The supplied output does not distinguish those cases.
+- Therefore, USB host operation, USB enumeration, and ALSA device recognition are confirmed; active Android framework/HAL playback routing and audible output through the DAC remain unverified by this capture.
+
+**Next validation:** While the DAC remains attached, play audio continuously and capture `dumpsys audio`, `dumpsys media.audio_flinger`, and `dumpsys media.audio_policy` (if the service exists). Confirm that the selected output device changes to USB and that sound is physically heard through the DAC. Also capture a filtered kernel log around attach/playback, redacting any device serial number. Do not interpret USB manager enumeration alone as proof of end-to-end playback.
