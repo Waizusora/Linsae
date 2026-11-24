@@ -529,3 +529,8 @@ Runtime checks on the user's Redmi 12C report `ro.boot.product.hardware.sku=eart
 The user confirms this Redmi 12C unit has no NFC; a related Poco variant has NFC. This supports treating the `aether` NFC/Secure Element configuration as variant-specific and excluding it from the baseline `earth` device configuration. Do not copy or enable those NFC/SE services for the non-NFC earth unit.
 
 The stock `init.project.rc` uses SKU-substituted imports under `/vendor/odm/etc/init/${ro.boot.product.hardware.sku}/`, which resolve to a missing `earth/` path on this unit. The exact init behavior for missing imported files and any resulting boot-time log messages have not yet been verified. Check relevant init logs before deciding whether the missing imports are harmless or require a guarded/variant-specific adaptation. Do not alter stock partitions or attempt to create the missing directory on the running device.
+
+
+### Runtime log check for the missing earth ODM import path
+
+A filtered `logcat -b all -d` query was run after observing that the SKU-expanded ODM import path points to the absent `/vendor/odm/etc/init/earth/` directory. The returned output contained numerous unrelated `ENOENT` messages from framework/vendor components (including PinnerService, LockSettingsStorage, libPowerHal, and libprocessgroup), but no explicit init import error matching the filter. This is inconclusive: the output does not prove the import succeeded, that init silently ignored it, or that the missing files have no boot impact. A narrower init-tag/log query and runtime NFC feature/service checks are still required. Do not attribute the unrelated ENOENT messages to the ODM import.
