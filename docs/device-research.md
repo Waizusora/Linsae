@@ -352,3 +352,16 @@ The first 180 lines of the stock `/vendor/etc/init/hw/init.mt6768.rc` were inspe
 - `post-fs` begins additional performance and proc-node permission configuration.
 
 **Porting implications:** This file contains hardware-specific MediaTek kernel interfaces (including `/proc/perfmgr`, `/proc/bootprof`, DVFSRC sysfs paths, `/proc/lk_env`, and `/dev/spm`). These actions must not be copied wholesale into Linsae until the target kernel exposes the corresponding nodes and their expected semantics are verified. Service start commands are configuration evidence, not proof that the named services are available or running. The early fstab mount call is consistent with the previously captured MT6768 fstab; exact mount behavior and slot resolution still require verification.
+
+
+### MediaTek init configuration: `init.mt6768.rc` lines 181–360
+
+The next section of the stock MT6768 init file was inspected.
+
+**Boot-region symlinks:** The init rules create aliases for `/dev/block/mmcblk0boot0` and `/dev/block/mmcblk0boot1`, then expose them as `preloader_a` and `preloader_b` through bootdevice and by-name paths. These are runtime init actions, not proof that the target Linsae kernel uses the same underlying block-device names. Verify the actual kernel block layout before adapting them.
+
+**Late filesystem stage:** The `late-fs` trigger waits for `hwservicemanager.ready=true`, sets the userspace reboot userdata remount timeout, then invokes `mount_all /vendor/etc/fstab.mt6768 --late`. It also runs a `tune2fs` command against the userdata path. The exact effects and suitability of this command must be evaluated against the target filesystem and Android version before reuse.
+
+**Post-fs-data directories:** The file creates vendor data directories for Silead/FPC fingerprint components, camera flash/shading/OTP/debug/flicker data, and other vendor components. It also adjusts ownership and SELinux labels for NVRAM-related mounts and creates radio and media support paths. These directory names are clues to vendor dependencies, not proof that every subsystem is present or active on the `earth` SKU.
+
+**Kernel interface permissions:** The section applies permissions to MediaTek SCP/SSPM, Mali, touch-panel, M4U, CMDQ, MDP sync, GPS, SPM, and other proc/sys/device nodes. Some permissions are broad (including world-readable or world-writable modes). Do not transplant these rules blindly: validate node existence, driver semantics, service identities, SELinux policy, and least-privilege requirements on the target build.
