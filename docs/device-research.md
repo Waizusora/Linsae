@@ -97,3 +97,57 @@ fastboot getvar all
 ```
 
 Review the output before sharing and redact serial numbers and other identifiers. Fastboot variables are device/bootloader dependent; unavailable variables are not evidence that a feature is absent.
+
+
+## Storage and partition observations
+
+Captured from the same stock Android 14 handset through ADB. These are observations of the running device, not a complete flash-layout specification.
+
+### Physical by-name entries
+
+The device exposes an eMMC-style block layout through `/dev/block/by-name`, with the following important entries:
+
+| Name | Block device |
+|---|---|
+| `boot_a` / `boot_b` | `mmcblk0p27` / `mmcblk0p45` |
+| `dtbo_a` / `dtbo_b` | `mmcblk0p28` / `mmcblk0p46` |
+| `vbmeta_a` / `vbmeta_b` | `mmcblk0p6` / `mmcblk0p9` |
+| `vbmeta_system_a` / `vbmeta_system_b` | `mmcblk0p7` / `mmcblk0p10` |
+| `vbmeta_vendor_a` / `vbmeta_vendor_b` | `mmcblk0p8` / `mmcblk0p11` |
+| `super` | `mmcblk0p54` |
+| `userdata` | `mmcblk0p55` |
+| `metadata` | `mmcblk0p13` |
+| `md_udc` | `mmcblk0p12` |
+
+Other paired firmware partitions are visible, including `gz`, `lk`, `logo`, `md1img`, `scp`, `spmfw`, `sspm`, and `tee`. Preserve the complete raw ADB capture as the source of truth; this summary is not an instruction to flash or modify any of these partitions.
+
+### Logical partitions and snapshot-related devices
+
+The mapper directory exposes active logical devices including:
+
+- `system_a`, `vendor_a`, `product_a`, `system_ext_a`, and `mi_ext_a`
+- Corresponding `*-verity` devices
+- Corresponding `*-cow` devices for several logical partitions
+
+This is consistent with dynamic partitions and snapshot/COW update infrastructure. The precise Virtual A/B configuration, group definitions, metadata contents, and inactive-slot state still require verification from super metadata and relevant device properties.
+
+### Mounted filesystems
+
+Observed mount types:
+
+| Mount point | Observed backing / filesystem |
+|---|---|
+| `/` | `/dev/block/dm-10`, EROFS, read-only |
+| `/vendor` | `/dev/block/dm-11`, EROFS, read-only |
+| `/product` | `/dev/block/dm-12`, EROFS, read-only |
+| `/system_ext` | `/dev/block/dm-14`, EROFS, read-only |
+| `/mnt/vendor/mi_ext` and `/mi_ext` | `/dev/block/dm-13`, EROFS, read-only |
+| `/data` | `/dev/block/dm-52`, F2FS, read-write |
+| `/metadata` | `/dev/block/by-name/md_udc`, ext4, read-write |
+| `/cust` | by-name `cust`, EROFS, read-only |
+
+The mount output reports `/metadata` backed by `md_udc` (block p12), while the by-name listing separately exposes `metadata` (block p13). This discrepancy is unresolved. Do not assume the two names are interchangeable; verify fstab, init configuration, and stock firmware metadata before defining the device fstab.
+
+### Remaining unknowns
+
+The ADB listing does not provide partition byte sizes, GPT/eMMC geometry, super logical partition group limits, boot image header version, AVB descriptors/keys/rollback indexes, or the exact contents of boot/vendor firmware images. Those must be obtained from trusted stock firmware metadata/images or read-only bootloader diagnostics. Do not write partition sizes, offsets, flash commands, or image packaging rules from block numbering alone.
