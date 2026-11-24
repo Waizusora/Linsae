@@ -383,3 +383,18 @@ This section of the stock init file applies permissions and ownership to additio
 **Important uncertainty:** The init file references Goodix fingerprint, while the previously inventoried vendor data directories include Silead and FPC paths. This may reflect bundled support for multiple components or variants; it does not identify the active fingerprint hardware on this handset. Confirm against ODM properties, VINTF declarations, running services, device nodes, and kernel drivers.
 
 **Porting implications:** The display, audio, codec, sensor, Bluetooth, and security nodes are useful clues for later HAL and kernel bring-up. Do not copy the permission rules wholesale. Confirm node existence and driver behavior, service UID/GID, SELinux labels and policy, and whether each interface is actually used on the `earth` variant.
+
+
+### MediaTek init configuration: `init.mt6768.rc` lines 541–720
+
+This section configures additional device nodes and reaches the `zygote-start`, `early-boot`, and `boot` triggers.
+
+**Camera and imaging interfaces:** The rules cover camera ISP/SYSRAM/DIP/DPE/TSF/MFB/RSC/OWE/FDVT/WPE/PipeMgr nodes, sensor interface (`seninf`), flashlight, camera calibration, autofocus, CCU, and VPU. Most are assigned to the `camera` group. These names provide a useful driver inventory, but actual camera HAL compatibility, sensor modules, calibration data, and kernel interfaces remain unverified.
+
+**Other multimedia interfaces:** The section includes MDP, SMI, DFRC, scheduler, ANC, voice-wakeup, and MATV nodes, along with thermal and power data-directory creation. The thermal directories include `/data/vendor/thermal/`, `/data/vendor/thermal/config/`, and `/data/vendor/.tp/`.
+
+**Sensitive partition interfaces:** Permission changes are applied to MTD-style paths for security, preloader, pro_info, boot image, recovery, NVRAM, seccfg, and misc. These rules must not be copied into a new ROM without understanding the underlying device nodes, access requirements, SELinux policy, and security implications.
+
+**Boot triggers observed:** The file writes boot-profiler markers at `zygote-start`, `early-boot`, and `boot`; the `early-boot` trigger also calls `verity_update_state`. The `boot` trigger begins additional VM, power, and LED permission tuning.
+
+**Porting implications:** Camera and thermal are likely major bring-up work areas. Confirm active hardware and services using ODM/VINTF selection, vendor service declarations, device nodes, kernel driver configuration, and runtime service state rather than relying on init filenames alone.
