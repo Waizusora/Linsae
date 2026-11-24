@@ -454,4 +454,21 @@ This section exposes additional service definitions and lifecycle dependencies i
 
 **Porting implications:** The init file contains factory-only services, privileged diagnostic sockets, identity-property handling, a kernel module load, and vendor display/thermal integration. These are not generic AOSP requirements. Audit each service's binary, imports, property namespace, SELinux policy, VINTF declaration (if applicable), and runtime state. Do not enable factory services or copy privileged capabilities by default.
 
-The supplied excerpt ends at line 1260 in the middle of the factory_bin service declarations. The remainder of init.mt6768.rc is still pending inspection.
+The init.mt6768.rc audit has now been captured through line 1440. The total file length has not yet been confirmed; any content after line 1440 remains pending inspection.
+
+
+### MediaTek init configuration: init.mt6768.rc lines 1261–1440
+
+This section completes several factory-mode helper declarations and adds headset and charging-display controls.
+
+**Factory helper services:** The file declares `maxcurrentIncall`, `headset_in_screenmode`, and `headset_out_screenmode`, each invoking `/system/vendor/bin/factory_bin` with a short command/argument pair. All three are `disabled` and `oneshot`, so their declarations do not make them ordinary boot-start services. The headset helpers are started by property triggers when `persist.audio.headset.plug.status` changes to `on` or `off`. The executable's command semantics and the producer of this property remain unverified.
+
+**Mishow charging control:** The file declares `mishow_start` and `mishow_stop`, which invoke `/vendor/bin/mishow.sh` with arguments `1` and `0`. They run as user/group `system`, are disabled/oneshot, and specify SELinux domain `u:r:mishow:s0`. Property `vendor.charge.mishow.ctl` starts the corresponding helper, while `persist.vendor.battery.mishow=true` sets the control property to true. This establishes a property-driven vendor charging feature, but does not prove that the script exists, the domain is defined in the active policy, or the feature is selected for this SKU.
+
+**Porting implications:**
+- Do not add the factory_bin helpers to normal boot startup. First identify whether their property triggers are emitted by an active vendor component and whether the commands affect user-visible behavior.
+- Treat headset screen-mode behavior as optional vendor integration, not a prerequisite for audio routing. Verify the property producer, audio policy, and display behavior before adapting it.
+- Treat Mishow as an optional charging/UI integration. Verify the script, its invoked binaries, property ownership, SELinux type enforcement, and compatibility with the target battery/charger implementation.
+- Do not copy the SELinux domain declaration as a substitute for a complete policy. A matching domain, file labels, property contexts, and allowed transitions/accesses must all be validated.
+
+The supplied capture covers lines 1261–1440. The total file length has not yet been confirmed, so any content after line 1440 remains pending inspection.
