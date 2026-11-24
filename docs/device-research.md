@@ -398,3 +398,18 @@ This section configures additional device nodes and reaches the `zygote-start`, 
 **Boot triggers observed:** The file writes boot-profiler markers at `zygote-start`, `early-boot`, and `boot`; the `early-boot` trigger also calls `verity_update_state`. The `boot` trigger begins additional VM, power, and LED permission tuning.
 
 **Porting implications:** Camera and thermal are likely major bring-up work areas. Confirm active hardware and services using ODM/VINTF selection, vendor service declarations, device nodes, kernel driver configuration, and runtime service state rather than relying on init filenames alone.
+
+
+### MediaTek init configuration: `init.mt6768.rc` lines 721–900
+
+This section is primarily performance, CPU, touch-panel, power, and kernel-interface permission setup.
+
+**CPU and scheduling:** It configures CPU hotplug and cpufreq policy nodes, runqueue statistics, HMP controls, CPU loading controls, and CPU frequency limits. The file references `policy0` and `policy6`, but the target kernel's cpufreq topology must be inspected rather than inferred from these names.
+
+**MediaTek PPM and performance manager:** Numerous `/proc/ppm/` nodes configure policy limits, CPU frequency/core limits, DVFS tables, and HICA settings. Additional `/proc/perfmgr/` and `/proc/fliperfs/` nodes configure performance and bandwidth-monitor behavior. These interfaces are kernel-specific and should not be carried over without matching driver support and verified semantics.
+
+**Touch and display controls:** The rules include Huaqin panel information, Novatek pocket/palm and edge rejection controls, FocalTech touch-controller attributes, and touchscreen self-test. These are evidence of available stock integration paths, not confirmation that every listed interface is used by the running `earth` unit.
+
+**Power and diagnostics:** The section also adjusts LED controls, hibernation-related nodes, Smartbook state, DCM state, and selected network diagnostic proc entries.
+
+**Porting implications:** Treat the CPU policy, PPM, HMP, perfmgr, bandwidth monitor, and touch-controller rules as stock-kernel-specific. Before adapting any rule, verify the target kernel's actual node paths, CPU topology, driver implementation, ownership requirements, SELinux labels, and Android power/performance HAL integration.
