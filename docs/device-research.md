@@ -413,3 +413,23 @@ This section is primarily performance, CPU, touch-panel, power, and kernel-inter
 **Power and diagnostics:** The section also adjusts LED controls, hibernation-related nodes, Smartbook state, DCM state, and selected network diagnostic proc entries.
 
 **Porting implications:** Treat the CPU policy, PPM, HMP, perfmgr, bandwidth monitor, and touch-controller rules as stock-kernel-specific. Before adapting any rule, verify the target kernel's actual node paths, CPU topology, driver implementation, ownership requirements, SELinux labels, and Android power/performance HAL integration.
+
+### MediaTek init configuration: init.mt6768.rc lines 901–1080
+
+This section continues the stock MT6768 init configuration with runtime triggers, thermal and Wi-Fi controls, scheduler tuning, battery properties, and display services.
+
+**Network and modem diagnostics:** The file adjusts ownership for selected /proc/net/ netfilter/iptables entries, WMT diagnostic nodes, and USB serial gadget ports /dev/ttyGS0 through /dev/ttyGS3. These are diagnostic and modem/connectivity interfaces; their presence in init does not establish that each port is active in the selected product configuration.
+
+**Thermal service:** On sys.boot_completed=1, init starts mi_thermald and changes ownership of /sys/class/thermal/thermal_message/sconfig. This identifies a vendor thermal daemon dependency. Inspect its service declaration, executable, configuration files, SELinux domain, and thermal HAL relationship before deciding how Linsae should provide thermal management. Do not assume the daemon alone is a complete thermal solution.
+
+**Wi-Fi SAR:** Properties vendor.sysctl.tx=0..3 trigger /vendor/bin/iwpriv wlan0 driver "SET_PWR_CTRL MySar N". This is a MediaTek/vendor-driver-specific transmit-power control path. Preserve it only if the selected Wi-Fi driver, firmware, property producer, and command syntax are verified compatible.
+
+**Boot and storage tuning:** After boot completion, init adjusts queue statistics, read-ahead, and request counts for mmcblk0, sdc, and several device-mapper nodes. Device-mapper node numbers are runtime allocations and must not be treated as stable partition identities. Any replacement tuning must identify the actual block devices and be justified by measurements on the target kernel.
+
+**CPU scheduler and EAS:** The boot-completed action enables the vendor EAS control, adjusts scheduler tunables, clears several MediaTek performance-manager boot-boost controls, requests DDR OPP reset, and switches policy0 and policy6 to schedutil. These writes depend on MediaTek-specific kernel interfaces and the stock CPU topology. Do not copy them into Linsae until kernel configuration, exposed sysfs/proc nodes, cpufreq policies, and the Android power HAL integration are verified.
+
+**Battery and fuel gauge:** Properties under persist.vendor.mediatek.fg.* change fuel-gauge daemon behavior, force a reported 25°C state, or increase logging. These are vendor debug/control hooks. Do not expose or enable test overrides in production builds; verify the actual battery driver and fuel-gauge service behavior first.
+
+**Display feature:** The file declares a displayfeature service using /system/bin/displayfeature, running as root in late_start. The supplied output ends at the next trigger, on property:init.svc.surfaceflinger=stopped, so the service's remaining actions and the rest of the init file have not yet been captured.
+
+**Porting implications:** This section reinforces that stock performance, thermal, Wi-Fi SAR, battery, and display behavior relies on vendor daemons and MediaTek kernel extensions. Treat the init script as an inventory of dependencies, not a ready-to-use Android 15 configuration. Validate each service against its executable, init imports, VINTF declarations, SELinux policy, kernel driver, and runtime state.
