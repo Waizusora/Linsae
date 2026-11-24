@@ -365,3 +365,21 @@ The next section of the stock MT6768 init file was inspected.
 **Post-fs-data directories:** The file creates vendor data directories for Silead/FPC fingerprint components, camera flash/shading/OTP/debug/flicker data, and other vendor components. It also adjusts ownership and SELinux labels for NVRAM-related mounts and creates radio and media support paths. These directory names are clues to vendor dependencies, not proof that every subsystem is present or active on the `earth` SKU.
 
 **Kernel interface permissions:** The section applies permissions to MediaTek SCP/SSPM, Mali, touch-panel, M4U, CMDQ, MDP sync, GPS, SPM, and other proc/sys/device nodes. Some permissions are broad (including world-readable or world-writable modes). Do not transplant these rules blindly: validate node existence, driver semantics, service identities, SELinux policy, and least-privilege requirements on the target build.
+
+
+### MediaTek init configuration: `init.mt6768.rc` lines 361–540
+
+This section of the stock init file applies permissions and ownership to additional hardware interfaces.
+
+**Subsystems observed:**
+- Audio DSP and SmartPA: `/dev/audio_ipi`, `/dev/audio_scp`, and RT5509/MT6660 parameter sysfs nodes.
+- Fingerprint: `/dev/goodix_fp`.
+- Video codec: `/dev/vcu`, `/dev/video0`, `/dev/video1`, and vendor codec data directories.
+- Sensors: MediaTek accelerometer/magnetometer sysfs paths and input-device attributes `input1` through `input10`.
+- Display: framebuffer, MediaTek display manager, vsync, and sync device nodes.
+- Bluetooth/input: `/dev/hid-keyboard` and `/dev/uinput`.
+- Other interfaces: FM radio, HDMI/TV-out, secure device node, PMIC engineering interfaces, and diagnostic/baseband tools.
+
+**Important uncertainty:** The init file references Goodix fingerprint, while the previously inventoried vendor data directories include Silead and FPC paths. This may reflect bundled support for multiple components or variants; it does not identify the active fingerprint hardware on this handset. Confirm against ODM properties, VINTF declarations, running services, device nodes, and kernel drivers.
+
+**Porting implications:** The display, audio, codec, sensor, Bluetooth, and security nodes are useful clues for later HAL and kernel bring-up. Do not copy the permission rules wholesale. Confirm node existence and driver behavior, service UID/GID, SELinux labels and policy, and whether each interface is actually used on the `earth` variant.
