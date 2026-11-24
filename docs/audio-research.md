@@ -125,7 +125,7 @@ The user confirmed audible output through the external USB DAC in both modes:
 | Unplug and reconnect DAC | Pass |
 | Playback resumes without restarting the player app | Pass |
 | USB Audio capture / recording | Not confirmed; out of scope |
-| Screen-off playback and suspend/resume | Not tested |
+| Screen-off playback (about 2 minutes) | Pass — playback continued with the display off |\n| Full suspend/resume cycle | Not independently verified |
 
 For shared/mixer playback, AudioFlinger showed an active mixer output thread routed to `AUDIO_DEVICE_OUT_USB_HEADSET` at 48 kHz, PCM 32-bit, stereo, with writes occurring. The user independently confirmed audible playback. USB Direct playback was also confirmed audibly, although the available AudioFlinger snapshot did not expose a corresponding USB output stream; therefore no unsupported low-level routing explanation is asserted for that mode.
 
@@ -147,4 +147,4 @@ Reconnect testing showed the DAC was re-enumerated and playback returned without
 - Identify the actual runtime audio policy file and verify XML loading/selection behavior.
 - Inventory audio HAL and sound-effect shared libraries, without attempting to change stock permissions.
 - Inspect relevant audio service/VINTF and SELinux dependencies for the Android 15 target.
-- Run a screen-off playback and wake-up test with the same DAC to investigate suspend and power-management behavior.
+- Investigate whether the screen-off playback test actually enters system suspend, then validate wake-up and repeated suspend/resume cycles.
