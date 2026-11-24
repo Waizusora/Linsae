@@ -152,6 +152,56 @@ For shared/mixer playback, AudioFlinger showed an active mixer output thread rou
 
 Reconnect testing showed the DAC was re-enumerated and playback returned without closing or restarting the player application. This is a confirmed stock-firmware behavior for the tested DAC and adapter combination, not a guarantee for every USB DAC.
 
+
+## Recording and uplink parameter research
+
+The stock vendor audio parameter directory contains a recording-side configuration set. The following observations are based on the XML contents supplied from the stock device; they are configuration evidence, not proof that each profile or effect is active at runtime.
+
+### Recording mode parameter tree
+
+`Record_ParamTreeView.xml` identifies named fields stored in the `record_mode_para` array:
+
+- **TX_DRC+DG / DRC:** 48 kHz limiter bounder, limiter attack and release rates, expander, compressor, high-band noise suppressor, one-second uplink mute, and uplink IIR switch.
+- **Digital Gain:** uplink digital gain.
+- **Stereo Enhancement:** bass enhancement, Richen, and Widen.
+- **NREC / NR:** thermal NR, uplink NR switch, thermal-noise upper bound, and uplink NR suppression strength.
+
+This file supplies field labels and associates them with `record_mode_para`; it does not specify array indices, units, ranges, bit meanings, or scaling. The hexadecimal values in `Record_AudioParam.xml` therefore must not be decoded into specific gain, limiter, or noise-reduction states without the matching vendor parameter specification.
+
+### Recording profile selection
+
+The `Record_AudioParam.xml` ParamTree maps recording scenarios and device profiles to parameter-unit IDs. Observed categories include normal, lecture, and meeting recording; camera recording; ASR; VR; VoicePerformance; VoiceUnlock; FastRecord; Unprocessed; USB; Bluetooth; and call recording.
+
+The USB recording entries map to parameter IDs in the recording configuration. These are input/recording-side profiles and are independent of the validated USB DAC playback route. The user's tested DAC capture capability has not been confirmed and is not a bring-up requirement.
+
+### FIR profiles
+
+`RecordFIR_AudioParam.xml` defines eight parameter units (IDs 0–7) and explicit mappings for default, wired-headset, handset, call-recording, fast-recording, and Bluetooth camera-recording profiles.
+
+- ID0 uses identity FIR coefficient arrays; its EQ magnitude arrays contain nonzero values.
+- IDs1 and 2 share the same non-identity FIR1 coefficient set and EQ values; FIR2 uses the identity coefficient pattern.
+- IDs3 and 4 use non-identity FIR1 and FIR2 coefficient arrays with different EQ profiles.
+- IDs5 and 6 use identity FIR coefficient arrays; their FIR1 EQ magnitudes are zero.
+- ID7 uses a non-identity FIR1 profile and identity FIR2 coefficients.
+
+There is no explicit USB path in this file's ParamTree. Do not assume which FIR unit is selected for USB or infer a fallback without confirming the parameter framework's selection behavior. The descriptor identifies FIR arrays and EQ fields, but the complete scaling and runtime activation semantics are not established.
+
+### Recording UI and gain configuration
+
+The supplied `RecordUI_AudioParam.xml` contains profile-specific UI flags for FIR, NREC, DRC/digital gain, uplink calibration, digital gain, limiter, AEC, NLP, ES, AES, sample rate, and gain-set/name fields. Its descriptor defines these as tuning-interface visibility/configuration fields; visibility values are not proof that a DSP block is active or inactive.
+
+The supplied `RecordVol_AudioParam.xml` maps multiple recording scenarios to `ul_gain` parameter units. The USB recording profiles shown map to ID1, whose `ul_gain` value is 0. The descriptor defines `ul_gain` as a byte array but does not specify its unit or scaling. A value of zero must not be interpreted as mute.
+
+The RecordVolUI file maps `ul_gain_visibility` to values -1, 0, and 1, but those values should be treated as UI metadata unless the matching descriptor or implementation establishes more precise semantics.
+
+### Porting implications
+
+1. Preserve the stock recording parameter XML as research reference; do not transplant it as a standalone configuration.
+2. Keep recording-side USB parameters separate from USB DAC playback requirements.
+3. Do not decode `record_mode_para` values or alter FIR/gain arrays without the MediaTek field layout, scaling, compatible DSP firmware, and matching Audio HAL implementation.
+4. Treat the presence of AEC/NS/AGC and NREC-related fields as configuration capability, not proof that every recording path uses them.
+5. Recording/capture validation remains separate from the confirmed USB playback tests and is not currently required for the external DAC use case.
+
 ## Porting implications for Linsae
 
 1. Treat the MTK Audio HAL 7.0 service, its init configuration, VINTF declaration, and vendor dependencies as a coupled stack.
