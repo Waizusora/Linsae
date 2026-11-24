@@ -1,0 +1,46 @@
+name: Extract Redmi 12C Fastboot firmware
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: earth-firmware-extract
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    name: Download, verify, and extract firmware images
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Check runner disk space
+        run: df -h
+
+      - name: Resolve MiFirm link, download, verify MD5, and extract images
+        run: |
+          python3 scripts/extract-fastboot-rom.py \
+            --page-url "https://mifirm.net/download/21036" \
+            --expected-md5 "b2ab987cbfb0b980cbbdca7174542672" \
+            --output "$RUNNER_TEMP/linsae-earth-firmware"
+
+      - name: Upload firmware inventory reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linsae-earth-firmware-report
+          path: |
+            ${{ runner.temp }}/linsae-earth-firmware/*.json
+            ${{ runner.temp }}/linsae-earth-firmware/*.tsv
+          if-no-files-found: warn
+          retention-days: 7
