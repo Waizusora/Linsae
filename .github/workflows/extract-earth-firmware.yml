@@ -27,10 +27,10 @@ jobs:
       - name: Check runner disk space
         run: df -h
 
-      - name: Resolve MiFirm link, download, verify MD5, and extract images
+      - name: Download direct Xiaomi firmware URL, verify MD5, and extract images
         run: |
           python3 scripts/extract-fastboot-rom.py \
-            --page-url "https://mifirm.net/download/21036" \
+            --download-url "https://bigota.d.miui.com/OS1.0.16.0.UCVMIXM/earth_global_images_OS1.0.16.0.UCVMIXM_20260227.0000.00_14.0_global_b2ab987cbf.tgz" \
             --expected-md5 "b2ab987cbfb0b980cbbdca7174542672" \
             --output "$RUNNER_TEMP/linsae-earth-firmware"
 
