@@ -236,7 +236,9 @@ def inspect_and_extract(archive: Path, output: Path) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--page-url", required=True)
+    source = ap.add_mutually_exclusive_group(required=True)
+    source.add_argument("--page-url")
+    source.add_argument("--download-url")
     ap.add_argument("--expected-md5", required=True)
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
@@ -246,7 +248,16 @@ def main() -> int:
     archive = output / EXPECTED_FILENAME
 
     try:
-        url = resolve_download(args.page_url)
+        if args.download_url:
+            url = allowed_url(args.download_url, args.download_url)
+            if not url:
+                raise RuntimeError("URL unduhan harus HTTPS dan berasal dari domain MiFirm/Xiaomi yang diizinkan.")
+            archive_name = PurePosixPath(urllib.parse.urlparse(url).path).name
+            if archive_name != EXPECTED_FILENAME:
+                raise RuntimeError(f"Nama arsip URL tidak cocok: {archive_name}")
+            print("Menggunakan URL firmware langsung yang diberikan melalui workflow.")
+        else:
+            url = resolve_download(args.page_url)
         download_and_verify(url, archive, args.expected_md5)
         inspect_and_extract(archive, output)
         archive.unlink(missing_ok=True)
