@@ -59,6 +59,7 @@ def allowed_url(value: str, base: str) -> str | None:
     allowed = (
         host == "mifirm.net" or host.endswith(".mifirm.net")
         or host == "miui.com" or host.endswith(".miui.com")
+        or host == "cdnorg.d.miui.com"
         or host == "xiaomi.com" or host.endswith(".xiaomi.com")
     )
     if parsed.scheme != "https" or not allowed:
@@ -144,6 +145,7 @@ def download_and_verify(url: str, destination: Path, expected_md5: str) -> None:
         if not (
             final_host == "mifirm.net" or final_host.endswith(".mifirm.net")
             or final_host == "miui.com" or final_host.endswith(".miui.com")
+            or final_host == "cdnorg.d.miui.com"
             or final_host == "xiaomi.com" or final_host.endswith(".xiaomi.com")
         ):
             raise RuntimeError(f"Redirect ke host yang tidak diizinkan: {final_host}")
