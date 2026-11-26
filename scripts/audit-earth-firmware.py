@@ -306,10 +306,16 @@ def main() -> int:
         "firmware": "OS1.0.16.0.UCVMIXM", "audit_mode": "offline_metadata_only",
         "scatter": read_scatter(args.archive),
         "images": {},
-        "logical_partition_metadata": {"status": "not_checked"},\n        "gpt": {"status": "not_checked"},\n        "gpt_scatter_comparison": {"status": "not_checked"},\n        "avb_descriptors": {},
+        "logical_partition_metadata": {"status": "not_checked"},
+        "gpt": {"status": "not_checked"},
+        "gpt_scatter_comparison": {"status": "not_checked"},
+        "avb_descriptors": {},
         "safety": "No image is flashed, modified, or written to a device.",
     }
-    gpt_path = images / "PGPT_EMMC"\n    if gpt_path.is_file():\n        report["gpt"] = audit_gpt(gpt_path)\n    for name in ("boot.img", "dtbo.img", "vbmeta.img", "vbmeta_system.img", "vbmeta_vendor.img", "super.img"):
+    gpt_path = images / "PGPT_EMMC"
+    if gpt_path.is_file():
+        report["gpt"] = audit_gpt(gpt_path)
+    for name in ("boot.img", "dtbo.img", "vbmeta.img", "vbmeta_system.img", "vbmeta_vendor.img", "super.img"):
         path = images / name
         if not path.is_file():
             report["images"][name] = {"status": "not_present"}
@@ -319,22 +325,27 @@ def main() -> int:
             report["images"][name] = audit_dtbo(path)
         elif name.startswith("vbmeta"):
             report["images"][name] = audit_vbmeta(path)
+            report["avb_descriptors"][name] = audit_vbmeta_descriptors(path)
         else:
             report["images"][name] = audit_sparse(path)
             report["logical_partition_metadata"] = audit_logical_partitions(path)
-    report["gpt_scatter_comparison"] = compare_gpt_scatter(report["gpt"], report["scatter"])\n    args.output.parent.mkdir(parents=True, exist_ok=True)
+    report["gpt_scatter_comparison"] = compare_gpt_scatter(report["gpt"], report["scatter"])
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print("Firmware structure audit written:", args.output)
     print("Scatter:", report["scatter"]["status"], "partitions:", report["scatter"].get("partition_count", 0))
     for name, result in report["images"].items():
         print(name + ":", result.get("status"))
-    print("GPT:", report["gpt"]["status"], "partitions:", report["gpt"].get("partition_count", 0))\n    print("GPT/scatter comparison:", report["gpt_scatter_comparison"]["status"], "matched:", report["gpt_scatter_comparison"].get("matched_names", 0))\n    print("AVB descriptors:", {k: v.get("status") for k, v in report["avb_descriptors"].items()})\n    logical_status = report["logical_partition_metadata"]["status"]
+    print("GPT:", report["gpt"]["status"], "partitions:", report["gpt"].get("partition_count", 0))
+    print("GPT/scatter comparison:", report["gpt_scatter_comparison"]["status"],
+          "matched:", report["gpt_scatter_comparison"].get("matched_names", 0))
+    print("AVB descriptors:", {k: v.get("status") for k, v in report["avb_descriptors"].items()})
+    logical_status = report["logical_partition_metadata"]["status"]
     print("Logical partition metadata:", logical_status)
     if logical_status != "parsed":
         print("ERROR: logical partition metadata audit did not complete successfully.")
         return 1
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
