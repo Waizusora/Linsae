@@ -36,7 +36,7 @@ def make_gpt() -> bytes:
 def make_vbmeta_chain() -> bytes:
     name = b"vbmeta_system"
     key = b"public-key-placeholder"
-    following = 80 + len(name) + len(key)
+    following = 76 + len(name) + len(key)
     descriptor = struct.pack(">QQ4I", 4, following, 2, len(name), len(key), 0)
     descriptor += bytes(60) + name + key
     header = bytearray(256)
