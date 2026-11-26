@@ -35,9 +35,20 @@ def read_scatter(archive: Path) -> dict:
     partitions = []
     current = None
     for line in content.splitlines():
-        match = re.match(r"\s*-\s*partition_name\s*:\s*(\S+)", line)
-        if match:
+        if re.match(r"\\s*-\\s*partition_index\\s*:", line):
             if current:
+                partitions.append(current)
+            current = {}
+            match = re.match(r"\\s*-\\s*partition_index\\s*:\\s*(.*?)\\s*$", line)
+            if match:
+                current["partition_index"] = match.group(1)
+            continue
+        match = re.match(r"\\s*(partition_name|file_name|linear_start_addr|physical_start_addr|partition_size|is_download|type|region)\\s*:\\s*(.*?)\\s*$", line)
+        if match:
+            if current is None:
+                current = {}
+            current[match.group(1)] = match.group(2)
+    if current:
                 partitions.append(current)
             current = {"partition_name": match.group(1)}
             continue
@@ -55,18 +66,21 @@ def audit_boot(path: Path) -> dict:
         data = f.read(4096)
     if len(data) < 44 or data[:8] != b"ANDROID!":
         return {"status": "unknown_header", "size_bytes": path.stat().st_size}
-    kernel_size, ramdisk_size, os_version, header_size = struct.unpack_from("<4I", data, 8)
+    kernel_size = struct.unpack_from("<I", data, 8)[0]
+    ramdisk_size = struct.unpack_from("<I", data, 16)[0]
+    page_size = struct.unpack_from("<I", data, 36)[0]
+    header_version = struct.unpack_from("<I", data, 40)[0]
+    os_version = struct.unpack_from("<I", data, 44)[0] if len(data) >= 48 else None
     result = {
         "status": "recognized",
         "size_bytes": path.stat().st_size,
         "magic": "ANDROID!",
         "kernel_size": kernel_size,
         "ramdisk_size": ramdisk_size,
+        "page_size": page_size,
+        "header_version": header_version,
         "os_version_field": os_version,
-        "header_size": header_size,
     }
-    if len(data) >= 44:
-        result["header_version"] = struct.unpack_from("<I", data, 40)[0]
     return result
 
 
@@ -75,9 +89,11 @@ def audit_dtbo(path: Path) -> dict:
         data = f.read(32)
     if len(data) < 32:
         return {"status": "truncated", "size_bytes": path.stat().st_size}
-    magic, total, header, entry_size, count, entries_offset, page_size, version = struct.unpack("<8I", data)
-    if magic != DTBO_MAGIC:
+    if data[:4] != bytes.fromhex("d7b7ab1e"):
+        magic = struct.unpack("<I", data[:4])[0]
         return {"status": "unknown_header", "size_bytes": path.stat().st_size, "magic_hex": f"0x{magic:08x}"}
+    _, total, header, entry_size, count, entries_offset, page_size, version = struct.unpack(">8I", data)
+    return {"status": "unknown_header", "size_bytes": path.stat().st_size, "magic_hex": f"0x{magic:08x}"}
     return {
         "status": "recognized", "size_bytes": path.stat().st_size,
         "magic": "DT_TABLE_MAGIC", "total_size": total, "header_size": header,
