@@ -7,7 +7,9 @@ import json
 import re
 import struct
 import tarfile
-from pathlib import Path, PurePosixPath\n\nfrom earth_metadata_audit import audit_gpt, audit_vbmeta_descriptors, compare_gpt_scatter
+from pathlib import Path, PurePosixPath
+
+from earth_metadata_audit import audit_gpt, audit_vbmeta_descriptors, compare_gpt_scatter
 
 SPARSE_MAGIC = 0xED26FF3A
 DTBO_MAGIC = 0xD7B7AB1E
