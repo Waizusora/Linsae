@@ -228,8 +228,9 @@ def audit_logical_partitions(path: Path) -> dict:
         max_size, slots, block_size = struct.unpack_from("<III", g, 40)
         if not 0 < max_size <= 16 * 1024 * 1024 or not 1 <= slots <= 4:
             return {"status": "invalid_geometry", "metadata_max_size": max_size, "metadata_slot_count": slots}
-        # Primary metadata copy for slot zero follows both geometry blocks.
-        base = 2 * 4096
+        # liblp reserves the first 4 KiB, stores primary and backup geometry
+        # in the next two blocks, then begins primary metadata at 12 KiB.
+        base = 3 * 4096
         h = reader.read_at(base, 128)
         magic, major, minor, hsize = struct.unpack_from("<IHHI", h)
         if magic != 0x414C5030 or not 128 <= hsize <= 4096:
