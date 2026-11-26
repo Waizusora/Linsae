@@ -26,7 +26,7 @@ def audit_gpt(path: Path, sector_size: int = 512) -> dict:
     entries_lba, entry_count, entry_size, entries_crc = struct.unpack_from("<QIII", header, 72)
     if not entry_count or entry_size < 128 or entry_size % 8:
         return {"status": "invalid_gpt_entry_geometry"}
-    array_offset = entries_lba * sector_size - header_offset
+    array_offset = entries_lba * sector_size
     array_size = entry_count * entry_size
     if array_offset < 0 or array_offset + array_size > len(data):
         return {"status": "gpt_partition_array_out_of_bounds"}
@@ -91,12 +91,12 @@ def audit_vbmeta_descriptors(path: Path) -> dict:
             return {"status": "descriptor_out_of_bounds", "tag": tag}
         item = {"tag": tag, "type": names.get(tag, "unknown"), "size_bytes": record_size}
         if tag == 4:
-            if following < 80:
+            if following < 76:
                 return {"status": "truncated_chain_descriptor"}
             rollback_loc, name_len, key_len, chain_flags = struct.unpack_from(">4I", data, pos + 16)
-            if 80 + name_len + key_len > following:
+            if 76 + name_len + key_len > following:
                 return {"status": "invalid_chain_descriptor_lengths"}
-            name_start = pos + 96
+            name_start = pos + 92
             partition = data[name_start:name_start + name_len].decode("utf-8", "replace")
             item.update({"partition_name": partition, "rollback_index_location": rollback_loc,
                          "flags": chain_flags})
