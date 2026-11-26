@@ -39,7 +39,7 @@ def audit_gpt(path: Path, sector_size: int = 512) -> dict:
         if row[:16] == bytes(16):
             continue
         first, last, attrs = struct.unpack_from("<QQQ", row, 32)
-        name = row[56:entry_size].decode("utf-16le", "replace").split("\\0", 1)[0]
+        name = row[56:entry_size].decode("utf-16le", "replace").split(chr(0), 1)[0]
         if last < first or first < first_usable or last > last_usable:
             return {"status": "invalid_gpt_partition_range", "partition": name}
         partitions.append({"name": name, "type_guid": str(uuid.UUID(bytes_le=row[:16])),
