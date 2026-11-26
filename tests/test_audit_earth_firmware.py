@@ -4,7 +4,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.audit_earth_firmware import SparseImageReader, audit_logical_partitions
+import importlib.util
+
+MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "audit-earth-firmware.py"
+SPEC = importlib.util.spec_from_file_location("audit_earth_firmware", MODULE_PATH)
+AUDIT = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(AUDIT)
+SparseImageReader = AUDIT.SparseImageReader
+audit_logical_partitions = AUDIT.audit_logical_partitions
 
 
 def sparse_image(expanded: bytes, block_size: int = 4096) -> bytes:
