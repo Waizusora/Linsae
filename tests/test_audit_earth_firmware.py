@@ -55,7 +55,7 @@ def build_super_image(corrupt_geometry_checksum: bool = False) -> bytes:
         struct.pack_into("<III", header, offset, table_offset, count, entry_size)
     header[12:44] = hashlib.sha256(header).digest()
 
-    metadata_base = 2 * 4096
+    metadata_base = 3 * 4096
     expanded[metadata_base:metadata_base + 128] = header
     expanded[metadata_base + 128:metadata_base + 128 + len(tables)] = tables
     return sparse_image(bytes(expanded))
