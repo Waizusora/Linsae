@@ -141,6 +141,158 @@ def audit_sparse(path: Path) -> dict:
     }
 
 
+
+class SparseImageReader:
+    """Read selected expanded ranges from Android sparse images without expanding them."""
+    def __init__(self, path: Path):
+        self.file = path.open("rb")
+        h = self.file.read(28)
+        if len(h) != 28:
+            raise ValueError("Truncated sparse header")
+        magic, major, minor, fh, ch, block, blocks, count, checksum = struct.unpack("<I4H4I", h)
+        if magic != SPARSE_MAGIC or major != 1 or fh < 28 or ch < 12:
+            raise ValueError("Unsupported sparse image header")
+        self.size = block * blocks
+        self.chunks = []
+        self.file.seek(fh)
+        logical = 0
+        for _ in range(count):
+            h = self.file.read(ch)
+            if len(h) != ch:
+                raise ValueError("Truncated sparse chunk header")
+            kind, _, nblocks, total = struct.unpack_from("<2H2I", h)
+            length, payload = nblocks * block, self.file.tell()
+            extra = total - ch
+            if extra < 0:
+                raise ValueError("Invalid sparse chunk size")
+            if kind == 0xCAC1 and extra == length:
+                self.chunks.append((logical, length, "raw", payload, b""))
+                self.file.seek(extra, 1)
+            elif kind == 0xCAC2 and extra == 4:
+                fill = self.file.read(4)
+                self.chunks.append((logical, length, "fill", 0, fill))
+            elif kind == 0xCAC3 and extra == 0:
+                self.chunks.append((logical, length, "zero", 0, b""))
+            elif kind == 0xCAC4 and extra == 4:
+                self.file.seek(4, 1)
+                continue
+            else:
+                raise ValueError(f"Invalid sparse chunk type/size: {kind:#x}/{extra}")
+            logical += length
+        if logical != self.size:
+            raise ValueError("Sparse chunk lengths do not match image geometry")
+
+    def read_at(self, offset: int, size: int) -> bytes:
+        if offset < 0 or size < 0 or offset + size > self.size:
+            raise ValueError("Read outside sparse image")
+        out = bytearray()
+        end = offset + size
+        for start, length, kind, payload, fill in self.chunks:
+            left, right = max(start, offset), min(start + length, end)
+            if left >= right:
+                continue
+            n, within = right - left, left - start
+            if kind == "raw":
+                self.file.seek(payload + within)
+                data = self.file.read(n)
+                if len(data) != n:
+                    raise ValueError("Truncated RAW chunk")
+                out.extend(data)
+            elif kind == "fill":
+                out.extend(bytes(fill[(within+i) % 4] for i in range(n)))
+            else:
+                out.extend(b"\\0" * n)
+            if len(out) == size:
+                break
+        if len(out) != size:
+            raise ValueError("Sparse range not fully mapped")
+        return bytes(out)
+
+    def close(self):
+        self.file.close()
+
+
+def audit_logical_partitions(path: Path) -> dict:
+    import hashlib
+    reader = None
+    try:
+        reader = SparseImageReader(path)
+        # liblp geometry copies occupy the first two 4 KiB blocks.
+        g = reader.read_at(4096, 52)
+        magic, struct_size = struct.unpack_from("<II", g)
+        if magic != 0x616C4467 or not 52 <= struct_size <= 4096:
+            return {"status": "geometry_not_recognized", "magic_hex": f"0x{magic:08x}"}
+        g = reader.read_at(4096, struct_size)
+        checksum = g[8:40]
+        check = bytearray(g); check[8:40] = b"\\0" * 32
+        if hashlib.sha256(check).digest() != checksum:
+            return {"status": "geometry_checksum_mismatch"}
+        max_size, slots, block_size = struct.unpack_from("<III", g, 40)
+        if not 0 < max_size <= 16 * 1024 * 1024 or not 1 <= slots <= 4:
+            return {"status": "invalid_geometry", "metadata_max_size": max_size, "metadata_slot_count": slots}
+        # Primary metadata copy for slot zero follows both geometry blocks.
+        base = 3 * 4096
+        h = reader.read_at(base, 128)
+        magic, major, minor, hsize = struct.unpack_from("<IHHI", h)
+        if magic != 0x414C5030 or not 128 <= hsize <= 4096:
+            return {"status": "metadata_header_not_recognized", "magic_hex": f"0x{magic:08x}"}
+        h = reader.read_at(base, hsize)
+        tsize = struct.unpack_from("<I", h, 44)[0]
+        if tsize > max_size or hsize + tsize > max_size:
+            return {"status": "invalid_table_size", "tables_size": tsize}
+        hc = bytearray(h); expected_h = bytes(h[12:44]); hc[12:44] = b"\\0" * 32
+        if hashlib.sha256(hc).digest() != expected_h:
+            return {"status": "header_checksum_mismatch", "metadata_version": f"{major}.{minor}"}
+        tables = reader.read_at(base + hsize, tsize)
+        if hashlib.sha256(tables).digest() != h[48:80]:
+            return {"status": "tables_checksum_mismatch", "metadata_version": f"{major}.{minor}"}
+        desc = {name: struct.unpack_from("<III", h, pos) for name, pos in
+                (("partitions",80),("extents",92),("groups",104),("block_devices",116))}
+        sizes = {"partitions":52, "extents":24, "groups":48, "block_devices":64}
+        rows = {}
+        for name, (off, count, entry_size) in desc.items():
+            if entry_size != sizes[name] or off + count * entry_size > tsize:
+                return {"status": "invalid_table_descriptor", "table": name, "entry_size": entry_size}
+            rows[name] = [tables[off+i*entry_size:off+(i+1)*entry_size] for i in range(count)]
+        groups = []
+        for b in rows["groups"]:
+            groups.append({"name": b[:36].split(b"\\0",1)[0].decode("ascii","replace"),
+                           "flags": struct.unpack_from("<I",b,36)[0],
+                           "maximum_size_bytes": struct.unpack_from("<Q",b,40)[0]})
+        devices = []
+        for b in rows["block_devices"]:
+            first, align, align_off, size = struct.unpack_from("<QIIQ",b)
+            devices.append({"first_logical_sector":first,"alignment":align,"alignment_offset":align_off,
+                            "size_bytes":size,"partition_name":b[24:60].split(b"\\0",1)[0].decode("ascii","replace"),
+                            "flags":struct.unpack_from("<I",b,60)[0]})
+        extents = []
+        for b in rows["extents"]:
+            sectors, target, data, source = struct.unpack("<QIQI",b)
+            extents.append({"sectors":sectors,"size_bytes":sectors*512,"target_type":target,
+                            "target_data":data,"target_source":source})
+        partitions = []
+        for b in rows["partitions"]:
+            name = b[:36].split(b"\\0",1)[0].decode("ascii","replace")
+            attrs, first, count, group = struct.unpack_from("<IIII",b,36)
+            if first + count > len(extents) or group >= len(groups):
+                return {"status":"invalid_partition_reference","partition":name}
+            owned = extents[first:first+count]
+            partitions.append({"name":name,"attributes":attrs,"group":groups[group]["name"],
+                               "first_extent_index":first,"extent_count":count,
+                               "size_bytes":sum(x["size_bytes"] for x in owned),"extents":owned})
+        return {"status":"parsed","metadata_slot":0,"geometry":{"metadata_max_size":max_size,
+                "metadata_slot_count":slots,"logical_block_size":block_size},
+                "metadata_version":f"{major}.{minor}","header_size":hsize,"tables_size":tsize,
+                "partition_count":len(partitions),"group_count":len(groups),
+                "block_device_count":len(devices),"groups":groups,"block_devices":devices,
+                "partitions":partitions}
+    except (OSError, ValueError, struct.error) as exc:
+        return {"status":"parse_error","error":str(exc)}
+    finally:
+        if reader:
+            reader.close()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--archive", required=True, type=Path)
@@ -153,7 +305,7 @@ def main() -> int:
         "firmware": "OS1.0.16.0.UCVMIXM", "audit_mode": "offline_metadata_only",
         "scatter": read_scatter(args.archive),
         "images": {},
-        "logical_partition_metadata": {"status": "tool_unavailable"},
+        "logical_partition_metadata": {"status": "not_checked"},
         "safety": "No image is flashed, modified, or written to a device.",
     }
     for name in ("boot.img", "dtbo.img", "vbmeta.img", "vbmeta_system.img", "vbmeta_vendor.img", "super.img"):
@@ -168,23 +320,7 @@ def main() -> int:
             report["images"][name] = audit_vbmeta(path)
         else:
             report["images"][name] = audit_sparse(path)
-            tool = shutil.which("lpdump")
-            if tool:
-                try:
-                    proc = subprocess.run([tool, str(path)], text=True, capture_output=True, timeout=120, check=False)
-                    report["logical_partition_metadata"] = {
-                        "status": "parsed" if proc.returncode == 0 else "tool_error",
-                        "returncode": proc.returncode,
-                        "stdout": proc.stdout[:200000],
-                        "stderr": proc.stderr[:12000],
-                    }
-                except (OSError, subprocess.TimeoutExpired) as exc:
-                    report["logical_partition_metadata"] = {"status": "tool_error", "error": str(exc)}
-            else:
-                report["logical_partition_metadata"] = {
-                    "status": "lpdump_unavailable",
-                    "note": "Sparse super image geometry was inspected; logical partition table was not decoded."
-                }
+            report["logical_partition_metadata"] = audit_logical_partitions(path)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print("Firmware structure audit written:", args.output)
