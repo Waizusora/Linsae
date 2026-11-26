@@ -194,7 +194,7 @@ def inspect_and_extract(archive: Path, output: Path) -> None:
             rel = safe_member_path(member.name)
             entries.append({"path": str(rel), "size": member.size})
             lower = str(rel).lower()
-            if lower.endswith(".img"):
+            if lower.endswith(".img") or PurePosixPath(str(rel)).name == "PGPT_EMMC":
                 # Keep image basenames in a flat directory; duplicate names are rejected.
                 name = PurePosixPath(str(rel)).name
                 target = image_dir / name
