@@ -325,7 +325,11 @@ def main() -> int:
     print("Scatter:", report["scatter"]["status"], "partitions:", report["scatter"].get("partition_count", 0))
     for name, result in report["images"].items():
         print(name + ":", result.get("status"))
-    print("Logical partition metadata:", report["logical_partition_metadata"]["status"])
+    logical_status = report["logical_partition_metadata"]["status"]
+    print("Logical partition metadata:", logical_status)
+    if logical_status != "parsed":
+        print("ERROR: logical partition metadata audit did not complete successfully.")
+        return 1
     return 0
 
 
