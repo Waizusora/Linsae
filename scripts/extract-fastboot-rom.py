@@ -243,6 +243,8 @@ def main() -> int:
     source.add_argument("--download-url")
     ap.add_argument("--expected-md5", required=True)
     ap.add_argument("--output", required=True)
+    ap.add_argument("--keep-archive", action="store_true",
+                    help="Keep the verified source archive for subsequent offline audit steps.")
     args = ap.parse_args()
 
     output = Path(args.output).resolve()
@@ -262,7 +264,8 @@ def main() -> int:
             url = resolve_download(args.page_url)
         download_and_verify(url, archive, args.expected_md5)
         inspect_and_extract(archive, output)
-        archive.unlink(missing_ok=True)
+        if not args.keep_archive:
+            archive.unlink(missing_ok=True)
         summary = {
             "device": "Xiaomi Redmi 12C",
             "codename": "earth",
