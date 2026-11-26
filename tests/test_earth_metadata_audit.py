@@ -19,7 +19,7 @@ def make_gpt() -> bytes:
     row[:16] = bytes.fromhex("28732ac11ff8d211ba4b00a0c93ec93b")
     row[16:32] = bytes.fromhex("00112233445566778899aabbccddeeff")
     struct.pack_into("<QQQ", row, 32, 3, 5, 0)
-    row[56:64] = "system".encode("utf-16le")
+    row[56:68] = "system".encode("utf-16le")
     entries[:128] = row
     blob[2 * sector:2 * sector + len(entries)] = entries
     header = bytearray(92)
