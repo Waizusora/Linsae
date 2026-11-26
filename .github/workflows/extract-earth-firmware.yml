@@ -34,6 +34,13 @@ jobs:
             --expected-md5 "b2ab987cbfb0b980cbbdca7174542672" \
             --output "$RUNNER_TEMP/linsae-earth-firmware"
 
+      - name: Audit firmware structure offline
+        run: |
+          python3 scripts/audit-earth-firmware.py \
+            --archive "$RUNNER_TEMP/linsae-earth-firmware/earth_global_images_OS1.0.16.0.UCVMIXM_20260227.0000.00_14.0_global_b2ab987cbf.tgz" \
+            --images "$RUNNER_TEMP/linsae-earth-firmware/images" \
+            --output "$RUNNER_TEMP/linsae-earth-firmware/firmware-structure-audit.json"
+
       - name: Upload firmware inventory reports
         if: always()
         uses: actions/upload-artifact@v4
