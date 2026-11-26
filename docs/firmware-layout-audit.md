@@ -115,6 +115,20 @@ The stock fstab also contains legacy aliases for bootloader/firmware partitions.
 6. Kernel source/config/module compatibility with the stock 4.19.191-perf kernel and Android 15 userspace.
 7. Exact physical partition geometry from the device's GPT and confirmation of all scatter offsets against that table.
 
-## Next audit stage
+## Offline GPT and AVB parser implementation
 
-The next safe engineering task is to extend the offline audit to parse the package's GPT metadata and AVB descriptors, then compare GPT byte ranges with the scatter table and known by-name observations. The audit should remain offline and read-only. Do not read, copy, publish, or modify calibration, NVRAM, NV data, persist, modem identity, or other sensitive device partitions. No flashing or bootloader changes are part of this work.
+The repository now includes `scripts/earth_metadata_audit.py`, integrated into `scripts/audit-earth-firmware.py`.
+
+- The extractor retains the package's `images/PGPT_EMMC` metadata blob in the analysis directory; it does not execute vendor flashing tools.
+- GPT parsing checks the GPT header CRC, partition-entry-array CRC, entry geometry, usable-LBA bounds, partition GUIDs, names, start LBAs, and sizes.
+- A comparison routine matches GPT entries by partition name against scatter start addresses and sizes. Unmatched names remain unasserted rather than being guessed.
+- AVB parsing checks the vbmeta authentication/auxiliary block bounds and descriptor-area bounds, enumerates descriptor tags, and extracts chain-partition names and rollback-index locations. Public-key bytes and signature contents are not emitted.
+- Unit tests cover valid and corrupted GPT headers, AVB chain descriptors and descriptor bounds, alongside the existing sparse/liblp tests.
+
+Repository validation completed successfully for commit `1919d0b66ee351d4a31c810d9f00b643a32dd956` (7 tests). This validates the parser fixtures, not yet the real package GPT or real vbmeta descriptor results.
+
+## Next verification step
+
+Run the `Extract Redmi 12C Fastboot firmware` workflow again from GitHub Actions. This is required because the previous successful artifact predates GPT retention and AVB descriptor parsing. The resulting report will establish whether the real `PGPT_EMMC` blob passes CRC checks and whether the three vbmeta images contain chain/hash/hashtree descriptors. Compare the resulting GPT/scatter report with the handset by-name observations before making any device-tree layout decisions.
+
+The audit remains offline and read-only. Do not read, copy, publish, or modify calibration, NVRAM, NV data, persist, modem identity, or other sensitive device partitions. No flashing or bootloader changes are part of this work.
