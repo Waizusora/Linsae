@@ -32,6 +32,7 @@ jobs:
           python3 scripts/extract-fastboot-rom.py \
             --download-url "https://cdnorg.d.miui.com/OS1.0.16.0.UCVMIXM/earth_global_images_OS1.0.16.0.UCVMIXM_20260227.0000.00_14.0_global_b2ab987cbf.tgz" \
             --expected-md5 "b2ab987cbfb0b980cbbdca7174542672" \
+            --keep-archive \
             --output "$RUNNER_TEMP/linsae-earth-firmware"
 
       - name: Audit firmware structure offline
