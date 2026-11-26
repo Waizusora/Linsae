@@ -199,7 +199,7 @@ class SparseImageReader:
             elif kind == "fill":
                 out.extend(bytes(fill[(within+i) % 4] for i in range(n)))
             else:
-                out.extend(b"\\0" * n)
+                out.extend(b"\0" * n)
             if len(out) == size:
                 break
         if len(out) != size:
@@ -222,7 +222,7 @@ def audit_logical_partitions(path: Path) -> dict:
             return {"status": "geometry_not_recognized", "magic_hex": f"0x{magic:08x}"}
         g = reader.read_at(4096, struct_size)
         checksum = g[8:40]
-        check = bytearray(g); check[8:40] = b"\\0" * 32
+        check = bytearray(g); check[8:40] = b"\0" * 32
         if hashlib.sha256(check).digest() != checksum:
             return {"status": "geometry_checksum_mismatch"}
         max_size, slots, block_size = struct.unpack_from("<III", g, 40)
@@ -238,7 +238,7 @@ def audit_logical_partitions(path: Path) -> dict:
         tsize = struct.unpack_from("<I", h, 44)[0]
         if tsize > max_size or hsize + tsize > max_size:
             return {"status": "invalid_table_size", "tables_size": tsize}
-        hc = bytearray(h); expected_h = bytes(h[12:44]); hc[12:44] = b"\\0" * 32
+        hc = bytearray(h); expected_h = bytes(h[12:44]); hc[12:44] = b"\0" * 32
         if hashlib.sha256(hc).digest() != expected_h:
             return {"status": "header_checksum_mismatch", "metadata_version": f"{major}.{minor}"}
         tables = reader.read_at(base + hsize, tsize)
@@ -254,14 +254,14 @@ def audit_logical_partitions(path: Path) -> dict:
             rows[name] = [tables[off+i*entry_size:off+(i+1)*entry_size] for i in range(count)]
         groups = []
         for b in rows["groups"]:
-            groups.append({"name": b[:36].split(b"\\0",1)[0].decode("ascii","replace"),
+            groups.append({"name": b[:36].split(b"\0",1)[0].decode("ascii","replace"),
                            "flags": struct.unpack_from("<I",b,36)[0],
                            "maximum_size_bytes": struct.unpack_from("<Q",b,40)[0]})
         devices = []
         for b in rows["block_devices"]:
             first, align, align_off, size = struct.unpack_from("<QIIQ",b)
             devices.append({"first_logical_sector":first,"alignment":align,"alignment_offset":align_off,
-                            "size_bytes":size,"partition_name":b[24:60].split(b"\\0",1)[0].decode("ascii","replace"),
+                            "size_bytes":size,"partition_name":b[24:60].split(b"\0",1)[0].decode("ascii","replace"),
                             "flags":struct.unpack_from("<I",b,60)[0]})
         extents = []
         for b in rows["extents"]:
@@ -270,7 +270,7 @@ def audit_logical_partitions(path: Path) -> dict:
                             "target_data":data,"target_source":source})
         partitions = []
         for b in rows["partitions"]:
-            name = b[:36].split(b"\\0",1)[0].decode("ascii","replace")
+            name = b[:36].split(b"\0",1)[0].decode("ascii","replace")
             attrs, first, count, group = struct.unpack_from("<IIII",b,36)
             if first + count > len(extents) or group >= len(groups):
                 return {"status":"invalid_partition_reference","partition":name}
