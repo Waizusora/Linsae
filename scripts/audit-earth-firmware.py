@@ -5,9 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import struct
-import subprocess
 import tarfile
 from pathlib import Path, PurePosixPath
 
@@ -231,7 +229,7 @@ def audit_logical_partitions(path: Path) -> dict:
         if not 0 < max_size <= 16 * 1024 * 1024 or not 1 <= slots <= 4:
             return {"status": "invalid_geometry", "metadata_max_size": max_size, "metadata_slot_count": slots}
         # Primary metadata copy for slot zero follows both geometry blocks.
-        base = 3 * 4096
+        base = 2 * 4096
         h = reader.read_at(base, 128)
         magic, major, minor, hsize = struct.unpack_from("<IHHI", h)
         if magic != 0x414C5030 or not 128 <= hsize <= 4096:
