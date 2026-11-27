@@ -127,8 +127,14 @@ The repository now includes `scripts/earth_metadata_audit.py`, integrated into `
 
 Repository validation completed successfully for commit `1919d0b66ee351d4a31c810d9f00b643a32dd956` (7 tests). This validates the parser fixtures, not yet the real package GPT or real vbmeta descriptor results.
 
-## Next verification step
+## Real-package parser findings and fail-closed validation
 
-Run the `Extract Redmi 12C Fastboot firmware` workflow again from GitHub Actions. This is required because the previous successful artifact predates GPT retention and AVB descriptor parsing. The resulting report will establish whether the real `PGPT_EMMC` blob passes CRC checks and whether the three vbmeta images contain chain/hash/hashtree descriptors. Compare the resulting GPT/scatter report with the handset by-name observations before making any device-tree layout decisions.
+The first real-package audit was run in extraction workflow #12 on commit `861d2a28600aa2fb080316e182d0fae1b4122707`. Download, MD5 verification, extraction, scatter parsing, and liblp parsing completed. The real `PGPT_EMMC` blob was found, but the GPT header CRC check returned `gpt_header_crc_mismatch`. The initial AVB descriptor parser also returned `invalid_vbmeta_range` for all three vbmeta images.
+
+The AVB issue was traced to incorrect field offsets in the parser: the auxiliary-block public-key and descriptor fields begin at byte offsets 72 and 104, while rollback-index location and flags are at offsets 120 and 124 respectively. These offsets have been corrected and tests now assert the descriptor, rollback-index-location, and flags fields.
+
+The GPT parser now includes bounded diagnostic fields on CRC failure (header offset/size, expected and computed CRC, GPT geometry, signature offsets, and a short prefix hex sample). This is diagnostic metadata only; it does not weaken CRC validation or accept an invalid table.
+
+The extraction audit now fails the job if GPT parsing, GPT/scatter geometry comparison, or any of the three AVB descriptor audits fail. The report upload remains configured with `if: always()`, so diagnostic JSON is retained even when the audit step exits nonzero. Repository validation and a new real-package extraction must be checked after these changes; the prior green extraction run is not evidence that the GPT or AVB audit passed.
 
 The audit remains offline and read-only. Do not read, copy, publish, or modify calibration, NVRAM, NV data, persist, modem identity, or other sensitive device partitions. No flashing or bootloader changes are part of this work.
