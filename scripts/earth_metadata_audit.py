@@ -82,11 +82,15 @@ def audit_vbmeta_descriptors(path: Path) -> dict:
     auth_size, aux_size = struct.unpack_from(">QQ", data, 12)
     algorithm = struct.unpack_from(">I", data, 28)[0]
     rollback = struct.unpack_from(">Q", data, 32)[0]
-    hash_off, hash_size, sig_off, sig_size = struct.unpack_from(">4Q", data, 40)
+    hash_off, hash_size = struct.unpack_from(">QQ", data, 32)
+    sig_off, sig_size = struct.unpack_from(">QQ", data, 48)
     # AVB header offsets are fixed by avb_vbmeta_image.h.
-    key_off, key_size, key_meta_off, key_meta_size = struct.unpack_from(">4Q", data, 72)
-    desc_off, desc_size = struct.unpack_from(">QQ", data, 104)
-    rollback_location, flags = struct.unpack_from(">II", data, 120)
+    key_off, key_size = struct.unpack_from(">QQ", data, 64)
+    key_meta_off, key_meta_size = struct.unpack_from(">QQ", data, 80)
+    desc_off, desc_size = struct.unpack_from(">QQ", data, 96)
+    rollback_index = struct.unpack_from(">Q", data, 112)[0]
+    flags = struct.unpack_from(">I", data, 120)[0]
+    rollback_location = struct.unpack_from(">I", data, 124)[0]
     total = 256 + auth_size + aux_size
     ranges = {"hash": (hash_off, hash_size, auth_size),
               "signature": (sig_off, sig_size, auth_size),
@@ -95,7 +99,7 @@ def audit_vbmeta_descriptors(path: Path) -> dict:
               "descriptors": (desc_off, desc_size, aux_size)}
     for label, (offset, size, limit) in ranges.items():
         if offset > limit or size > limit - offset:
-            return {"status": "invalid_vbmeta_range", "range": label}
+            return {"status": "invalid_vbmeta_range", "range": label, "authentication_data_block_size": auth_size, "auxiliary_data_block_size": aux_size, "offset": offset, "size": size, "range_limit": limit}
     if total > len(data):
         return {"status": "truncated_vbmeta_blocks", "declared_size_bytes": total}
     desc_start = 256 + auth_size + desc_off
@@ -127,7 +131,7 @@ def audit_vbmeta_descriptors(path: Path) -> dict:
     return {"status": "parsed", "size_bytes": len(data), "required_major": required_major,
             "required_minor": required_minor, "authentication_data_block_size": auth_size,
             "auxiliary_data_block_size": aux_size, "algorithm_type": algorithm,
-            "rollback_index": rollback, "flags": flags, "rollback_index_location": rollback_location,
+            "rollback_index": rollback_index, "flags": flags, "rollback_index_location": rollback_location,
             "descriptor_count": len(descriptors), "descriptor_types": [x["type"] for x in descriptors],
             "chain_partitions": chains}
 
