@@ -200,4 +200,4 @@ def compare_gpt_scatter(gpt: dict, scatter: dict) -> dict:
             "all_size_matches": all(x["size_match"] for x in checks),
             "unverified_partitions": sorted(set(unverified)),
             "scatter_names_missing_from_pgpt": sorted(set(missing)), "partitions": checks}
-}
+
