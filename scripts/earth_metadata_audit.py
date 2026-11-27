@@ -171,24 +171,33 @@ def audit_vbmeta_descriptors(path: Path) -> dict:
 
 
 def compare_gpt_scatter(gpt: dict, scatter: dict) -> dict:
-    if gpt.get("status") != "parsed" or scatter.get("status") != "parsed":
+    if gpt.get("status") not in ("parsed", "mediatek_pgpt_parsed") or scatter.get("status") != "parsed":
         return {"status": "not_comparable"}
     by_name = {p["name"].lower(): p for p in gpt["partitions"]}
-    checks = []
+    checks, unverified, missing = [], [], []
     for row in scatter.get("partitions", []):
         name = row.get("partition_name", "").lower()
-        if name not in by_name:
+        if not name:
+            continue
+        actual = by_name.get(name)
+        if actual is None:
+            missing.append(name)
+            continue
+        if actual.get("range_status") == "unmapped":
+            unverified.append(name)
             continue
         try:
             start = int(row.get("linear_start_addr", row.get("physical_start_addr", "0")), 0)
             size = int(row.get("partition_size", "0"), 0)
         except ValueError:
             continue
-        actual = by_name[name]
         checks.append({"partition": name, "scatter_start_bytes": start,
                        "gpt_start_bytes": actual["start_bytes"], "scatter_size_bytes": size,
                        "gpt_size_bytes": actual["size_bytes"], "start_match": start == actual["start_bytes"],
                        "size_match": size == actual["size_bytes"]})
     return {"status": "compared", "matched_names": len(checks),
             "all_start_matches": all(x["start_match"] for x in checks),
-            "all_size_matches": all(x["size_match"] for x in checks), "partitions": checks}
+            "all_size_matches": all(x["size_match"] for x in checks),
+            "unverified_partitions": sorted(set(unverified)),
+            "scatter_names_missing_from_pgpt": sorted(set(missing)), "partitions": checks}
+}
