@@ -347,15 +347,20 @@ def main() -> int:
     if logical_status != "parsed":
         print("ERROR: logical partition metadata audit did not complete successfully.")
         return 1
-    if report["gpt"].get("status") != "parsed":
-        print("ERROR: GPT audit did not complete successfully.")
+    if report["gpt"].get("status") not in ("parsed", "mediatek_pgpt_parsed"):
+        print("ERROR: GPT/PGPT audit did not complete successfully.")
         return 1
     if report["gpt_scatter_comparison"].get("status") != "compared":
         print("ERROR: GPT/scatter comparison did not complete.")
         return 1
     comparison = report["gpt_scatter_comparison"]
     if comparison.get("matched_names", 0) == 0 or not comparison.get("all_start_matches") or not comparison.get("all_size_matches"):
-        print("ERROR: GPT/scatter geometry does not match for all comparable partitions.")
+        print("ERROR: GPT/PGPT and scatter geometry does not match for comparable partitions.")
+        return 1
+    if comparison.get("unverified_partitions"):
+        print("ERROR: PGPT contains unmapped ranges for scatter partitions:",
+              ", ".join(comparison["unverified_partitions"]))
+        return 1
         return 1
     avb = report["avb_descriptors"]
     expected_avb = {"vbmeta.img", "vbmeta_system.img", "vbmeta_vendor.img"}
