@@ -347,6 +347,21 @@ def main() -> int:
     if logical_status != "parsed":
         print("ERROR: logical partition metadata audit did not complete successfully.")
         return 1
+    if report["gpt"].get("status") != "parsed":
+        print("ERROR: GPT audit did not complete successfully.")
+        return 1
+    if report["gpt_scatter_comparison"].get("status") != "compared":
+        print("ERROR: GPT/scatter comparison did not complete.")
+        return 1
+    comparison = report["gpt_scatter_comparison"]
+    if comparison.get("matched_names", 0) == 0 or not comparison.get("all_start_matches") or not comparison.get("all_size_matches"):
+        print("ERROR: GPT/scatter geometry does not match for all comparable partitions.")
+        return 1
+    avb = report["avb_descriptors"]
+    expected_avb = {"vbmeta.img", "vbmeta_system.img", "vbmeta_vendor.img"}
+    if set(avb) != expected_avb or any(item.get("status") != "parsed" for item in avb.values()):
+        print("ERROR: one or more AVB descriptor audits did not complete successfully.")
+        return 1
     return 0
 
 if __name__ == "__main__":
