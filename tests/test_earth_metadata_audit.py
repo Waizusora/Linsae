@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from earth_metadata_audit import audit_gpt, audit_vbmeta_descriptors
+from earth_metadata_audit import audit_gpt, audit_vbmeta_descriptors, compare_gpt_scatter
 
 
 def make_gpt() -> bytes:
@@ -50,6 +50,22 @@ def make_vbmeta_chain() -> bytes:
     return bytes(header) + descriptor
 
 
+
+def make_mediatek_pgpt() -> bytes:
+    blob = bytearray(1024 + 128 * 128)
+    header = bytearray(92)
+    header[:8] = b"EFI PART"
+    struct.pack_into("<III", header, 8, 0x00010000, 92, 0)
+    struct.pack_into("<QQQQ", header, 24, 1, 64, 64, 0)
+    blob[512:512 + 92] = header
+    for index, (name, first, last) in enumerate((("misc", 64, 1087), ("userdata", 0, 0))):
+        row = bytearray(128)
+        row[:32] = ("gpt" + f"{index + 1:029x}").encode("ascii")
+        struct.pack_into("<QQQ", row, 32, first, last, 0)
+        row[56:56 + len(name.encode("utf-16le"))] = name.encode("utf-16le")
+        blob[1024 + index * 128:1024 + (index + 1) * 128] = row
+    return bytes(blob)
+
 class GptAuditTests(unittest.TestCase):
     def test_parses_valid_gpt_and_partition_geometry(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -61,6 +77,24 @@ class GptAuditTests(unittest.TestCase):
             self.assertEqual(result["partitions"][0]["name"], "system")
             self.assertEqual(result["partitions"][0]["start_bytes"], 1536)
             self.assertEqual(result["partitions"][0]["size_bytes"], 1536)
+
+
+    def test_parses_mediatek_pgpt_and_marks_unmapped_partition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "PGPT_EMMC"
+            path.write_bytes(make_mediatek_pgpt())
+            result = audit_gpt(path)
+            self.assertEqual(result["status"], "mediatek_pgpt_parsed", result)
+            self.assertEqual(result["partition_count"], 2)
+            self.assertEqual(result["partitions"][0]["name"], "misc")
+            self.assertEqual(result["partitions"][0]["start_bytes"], 32768)
+            self.assertEqual(result["unmapped_partitions"], ["userdata"])
+            comparison = compare_gpt_scatter(result, {"status": "parsed", "partitions": [
+                {"partition_name": "misc", "linear_start_addr": "0x8000", "partition_size": "0x80000"},
+                {"partition_name": "userdata", "linear_start_addr": "0x100000", "partition_size": "0x200000"}
+            ]})
+            self.assertEqual(comparison["matched_names"], 1)
+            self.assertEqual(comparison["unverified_partitions"], ["userdata"])
 
     def test_rejects_corrupt_gpt_header_crc(self):
         blob = bytearray(make_gpt())
