@@ -19,8 +19,27 @@ def audit_gpt(path: Path, sector_size: int = 512) -> dict:
         return {"status": "invalid_gpt_header_size", "header_size": header_size}
     full = bytearray(data[header_offset:header_offset + header_size])
     full[16:20] = bytes(4)
-    if zlib.crc32(full) & 0xffffffff != expected_crc:
-        return {"status": "gpt_header_crc_mismatch"}
+    actual_crc = zlib.crc32(full) & 0xffffffff
+    if actual_crc != expected_crc:
+        current_lba, backup_lba, first_usable, last_usable = struct.unpack_from("<QQQQ", header, 24)
+        entries_lba, entry_count, entry_size, entries_crc = struct.unpack_from("<QIII", header, 72)
+        return {
+            "status": "gpt_header_crc_mismatch",
+            "header_offset": header_offset,
+            "header_size": header_size,
+            "expected_crc32": f"{expected_crc:08x}",
+            "actual_crc32": f"{actual_crc:08x}",
+            "revision": revision,
+            "current_lba": current_lba,
+            "backup_lba": backup_lba,
+            "first_usable_lba": first_usable,
+            "last_usable_lba": last_usable,
+            "entries_lba": entries_lba,
+            "entry_count": entry_count,
+            "entry_size": entry_size,
+            "signature_offsets": [i for i in range(len(data)) if data.startswith(b"EFI PART", i)],
+            "prefix_hex": data[:128].hex(),
+        }
     current_lba, backup_lba, first_usable, last_usable = struct.unpack_from("<QQQQ", header, 24)
     disk_guid = str(uuid.UUID(bytes_le=bytes(header[56:72])))
     entries_lba, entry_count, entry_size, entries_crc = struct.unpack_from("<QIII", header, 72)
@@ -64,9 +83,10 @@ def audit_vbmeta_descriptors(path: Path) -> dict:
     algorithm = struct.unpack_from(">I", data, 28)[0]
     rollback = struct.unpack_from(">Q", data, 32)[0]
     hash_off, hash_size, sig_off, sig_size = struct.unpack_from(">4Q", data, 40)
-    key_off, key_size, key_meta_off, key_meta_size = struct.unpack_from(">4Q", data, 64)
-    desc_off, desc_size = struct.unpack_from(">QQ", data, 96)
-    flags, rollback_location = struct.unpack_from(">II", data, 120)
+    # AVB header offsets are fixed by avb_vbmeta_image.h.
+    key_off, key_size, key_meta_off, key_meta_size = struct.unpack_from(">4Q", data, 72)
+    desc_off, desc_size = struct.unpack_from(">QQ", data, 104)
+    rollback_location, flags = struct.unpack_from(">II", data, 120)
     total = 256 + auth_size + aux_size
     ranges = {"hash": (hash_off, hash_size, auth_size),
               "signature": (sig_off, sig_size, auth_size),
