@@ -46,6 +46,7 @@ def make_vbmeta_chain() -> bytes:
     struct.pack_into(">I", header, 28, 1)
     struct.pack_into(">Q", header, 32, 7)
     struct.pack_into(">QQ", header, 104, 0, len(descriptor))
+    struct.pack_into(">II", header, 120, 2, 0)
     return bytes(header) + descriptor
 
 
@@ -90,6 +91,8 @@ class AvbAuditTests(unittest.TestCase):
             result = audit_vbmeta_descriptors(path)
             self.assertEqual(result["status"], "parsed", result)
             self.assertEqual(result["descriptor_count"], 1)
+            self.assertEqual(result["rollback_index_location"], 2)
+            self.assertEqual(result["flags"], 0)
             self.assertEqual(result["chain_partitions"][0]["partition_name"], "vbmeta_system")
             self.assertNotIn("public-key-placeholder", str(result))
 
