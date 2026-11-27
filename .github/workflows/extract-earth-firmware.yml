@@ -2,6 +2,14 @@ name: Extract Redmi 12C Fastboot firmware
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/earth_metadata_audit.py"
+      - "scripts/audit-earth-firmware.py"
+      - "scripts/extract-fastboot-rom.py"
+      - ".github/workflows/extract-earth-firmware.yml"
 
 permissions:
   contents: read
