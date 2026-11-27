@@ -44,9 +44,9 @@ def make_vbmeta_chain() -> bytes:
     struct.pack_into(">II", header, 4, 1, 0)
     struct.pack_into(">QQ", header, 12, 0, len(descriptor))
     struct.pack_into(">I", header, 28, 1)
-    struct.pack_into(">Q", header, 32, 7)
-    struct.pack_into(">QQ", header, 104, 0, len(descriptor))
-    struct.pack_into(">II", header, 120, 2, 0)
+    struct.pack_into(">QQ", header, 96, 0, len(descriptor))
+    struct.pack_into(">Q", header, 112, 7)
+    struct.pack_into(">II", header, 120, 0, 2)
     return bytes(header) + descriptor
 
 
@@ -98,7 +98,7 @@ class AvbAuditTests(unittest.TestCase):
 
     def test_rejects_descriptor_outside_declared_area(self):
         blob = bytearray(make_vbmeta_chain())
-        struct.pack_into(">Q", blob, 104, 0x1000)
+        struct.pack_into(">Q", blob, 96, 0x1000)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "bad-vbmeta.img"
             path.write_bytes(blob)
