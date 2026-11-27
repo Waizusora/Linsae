@@ -113,9 +113,9 @@ def audit_vbmeta(path: Path) -> dict:
         return {"status": "unknown_header", "size_bytes": path.stat().st_size}
     auth_size, aux_size = struct.unpack_from(">QQ", data, 12)
     algorithm = struct.unpack_from(">I", data, 28)[0]
-    rollback = struct.unpack_from(">Q", data, 32)[0]
-    rollback_location = struct.unpack_from(">I", data, 120)[0]
-    flags = struct.unpack_from(">I", data, 124)[0]
+    rollback = struct.unpack_from(">Q", data, 112)[0]
+    flags = struct.unpack_from(">I", data, 120)[0]
+    rollback_location = struct.unpack_from(">I", data, 124)[0]
     release = data[128:176].split(b"\0", 1)[0].decode("ascii", "replace")
     return {
         "status": "recognized", "size_bytes": path.stat().st_size, "magic": "AVB0",
