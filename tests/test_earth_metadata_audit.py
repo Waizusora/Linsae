@@ -45,7 +45,7 @@ def make_vbmeta_chain() -> bytes:
     struct.pack_into(">QQ", header, 12, 0, len(descriptor))
     struct.pack_into(">I", header, 28, 1)
     struct.pack_into(">Q", header, 32, 7)
-    struct.pack_into(">QQ", header, 96, 0, len(descriptor))
+    struct.pack_into(">QQ", header, 104, 0, len(descriptor))
     return bytes(header) + descriptor
 
 
@@ -68,6 +68,18 @@ class GptAuditTests(unittest.TestCase):
             path = Path(directory) / "bad-gpt"
             path.write_bytes(blob)
             self.assertEqual(audit_gpt(path)["status"], "gpt_header_crc_mismatch")
+
+    def test_crc_failure_includes_header_diagnostics(self):
+        blob = bytearray(make_gpt())
+        blob[512 + 16] ^= 0x01
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-gpt"
+            path.write_bytes(blob)
+            result = audit_gpt(path)
+            self.assertEqual(result["status"], "gpt_header_crc_mismatch")
+            self.assertEqual(result["header_offset"], 512)
+            self.assertEqual(len(result["expected_crc32"]), 8)
+            self.assertEqual(result["signature_offsets"], [512])
 
 
 class AvbAuditTests(unittest.TestCase):
