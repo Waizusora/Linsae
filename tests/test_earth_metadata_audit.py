@@ -56,7 +56,10 @@ def make_mediatek_pgpt() -> bytes:
     header = bytearray(92)
     header[:8] = b"EFI PART"
     struct.pack_into("<III", header, 8, 0x00010000, 92, 0)
+    # Match the real firmware header: a nominal 128-entry table at LBA 2,
+    # but an invalid usable-LBA interval and zero header CRC.
     struct.pack_into("<QQQQ", header, 24, 1, 64, 64, 0)
+    struct.pack_into("<QIII", header, 72, 2, 128, 128, 0)
     blob[512:512 + 92] = header
     for index, (name, first, last) in enumerate((("misc", 64, 1087), ("userdata", 0, 0))):
         row = bytearray(128)
