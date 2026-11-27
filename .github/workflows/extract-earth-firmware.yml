@@ -58,5 +58,6 @@ jobs:
           path: |
             ${{ runner.temp }}/linsae-earth-firmware/*.json
             ${{ runner.temp }}/linsae-earth-firmware/*.tsv
+            ${{ runner.temp }}/linsae-earth-firmware/images/PGPT_EMMC
           if-no-files-found: warn
           retention-days: 7
