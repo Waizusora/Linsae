@@ -28,12 +28,22 @@ def audit_gpt(path: Path, sector_size: int = 512) -> dict:
     # geometry fields are zero/incomplete, so it must not be accepted as GPT.
     # The records retain a 32-byte ASCII identifier, standard LBA/attribute
     # fields, and a UTF-16LE partition name.
-    if (expected_crc == 0 and entries_lba == 0 and entry_count == 0
-            and entry_size == 0 and len(data) >= 1024
-            and (len(data) - 1024) % 128 == 0):
-        table = data[1024:]
+    vendor_table_offset = entries_lba * sector_size
+    vendor_table_size = entry_count * entry_size
+    vendor_table_in_bounds = (entry_size == 128 and entry_count > 0
+                              and vendor_table_offset >= 2 * sector_size
+                              and vendor_table_offset + vendor_table_size <= len(data))
+    first_record = (data[vendor_table_offset:vendor_table_offset + entry_size]
+                    if vendor_table_in_bounds else b"")
+    # MediaTek PGPT keeps nominal GPT entry-array geometry (LBA 2, 128
+    # records of 128 bytes) but leaves the header CRC at zero and writes
+    # vendor records rather than GPT GUID-based entries. The invalid usable
+    # LBA interval plus the record identifier distinguishes this format.
+    if (expected_crc == 0 and first_usable > last_usable
+            and vendor_table_in_bounds and first_record[:3] == b"gpt"):
+        table = data[vendor_table_offset:vendor_table_offset + vendor_table_size]
         partitions, invalid_ranges, seen = [], [], set()
-        for index in range(len(table) // 128):
+        for index in range(entry_count):
             row = table[index * 128:(index + 1) * 128]
             if not any(row):
                 continue
@@ -60,7 +70,7 @@ def audit_gpt(path: Path, sector_size: int = 512) -> dict:
         return {"status": "mediatek_pgpt_parsed", "format": "MediaTek PGPT_EMMC",
                 "size_bytes": len(data), "sector_size": sector_size,
                 "header_offset": header_offset, "header_crc_status": "not_provided",
-                "vendor_record_offset": 1024, "vendor_record_size": 128,
+                "vendor_record_offset": vendor_table_offset, "vendor_record_size": entry_size,
                 "partition_count": len(partitions), "valid_partition_count": len(partitions) - len(invalid_ranges),
                 "unmapped_partitions": invalid_ranges, "partitions": partitions,
                 "standard_gpt_header_status": "not_validated"}
