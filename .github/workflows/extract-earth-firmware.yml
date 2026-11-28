@@ -61,3 +61,12 @@ jobs:
             ${{ runner.temp }}/linsae-earth-firmware/images/PGPT_EMMC
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Upload boot image for offline kernel and device-tree inspection
+        if: always() && hashFiles(format('{0}/linsae-earth-firmware/images/boot.img', runner.temp)) != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: linsae-earth-boot-image
+          path: ${{ runner.temp }}/linsae-earth-firmware/images/boot.img
+          if-no-files-found: error
+          retention-days: 7
