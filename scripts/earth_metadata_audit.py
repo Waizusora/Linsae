@@ -184,7 +184,8 @@ def compare_gpt_scatter(gpt: dict, scatter: dict) -> dict:
     if gpt.get("status") not in ("parsed", "mediatek_pgpt_parsed") or scatter.get("status") != "parsed":
         return {"status": "not_comparable"}
     by_name = {p["name"].lower(): p for p in gpt["partitions"]}
-    checks, unverified, missing = [], [], []
+    checks, unverified, blocking_unverified, missing = [], [], [], []
+    unverified_details = []
     for row in scatter.get("partitions", []):
         name = row.get("partition_name", "").lower()
         if not name:
@@ -195,11 +196,30 @@ def compare_gpt_scatter(gpt: dict, scatter: dict) -> dict:
             continue
         if actual.get("range_status") == "unmapped":
             unverified.append(name)
+            try:
+                scatter_start = int(row.get("linear_start_addr", row.get("physical_start_addr", "0")), 0)
+                scatter_size = int(row.get("partition_size", "0"), 0)
+            except (TypeError, ValueError):
+                scatter_start, scatter_size = 0, 0
+            non_downloadable = row.get("is_download", "").strip().lower() in ("false", "no", "0")
+            # MediaTek scatter uses high sentinel addresses for non-downloadable
+            # service entries. They are not physical offsets and cannot resolve
+            # an unmapped PGPT record. Keep them unverified, but do not treat
+            # those sentinel values as required geometry.
+            sentinel = scatter_start >= 0xFFFF0000
+            reason = ("non_physical_scatter_sentinel"
+                      if non_downloadable and sentinel else "required_geometry_unverified")
+            if reason == "required_geometry_unverified":
+                blocking_unverified.append(name)
+            unverified_details.append({"partition": name, "reason": reason,
+                                       "scatter_downloadable": not non_downloadable,
+                                       "scatter_start_bytes": scatter_start,
+                                       "scatter_size_bytes": scatter_size})
             continue
         try:
             start = int(row.get("linear_start_addr", row.get("physical_start_addr", "0")), 0)
             size = int(row.get("partition_size", "0"), 0)
-        except ValueError:
+        except (TypeError, ValueError):
             continue
         checks.append({"partition": name, "scatter_start_bytes": start,
                        "gpt_start_bytes": actual["start_bytes"], "scatter_size_bytes": size,
@@ -209,5 +229,7 @@ def compare_gpt_scatter(gpt: dict, scatter: dict) -> dict:
             "all_start_matches": all(x["start_match"] for x in checks),
             "all_size_matches": all(x["size_match"] for x in checks),
             "unverified_partitions": sorted(set(unverified)),
+            "blocking_unverified_partitions": sorted(set(blocking_unverified)),
+            "unverified_partition_details": unverified_details,
             "scatter_names_missing_from_pgpt": sorted(set(missing)), "partitions": checks}
 

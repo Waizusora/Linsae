@@ -358,9 +358,11 @@ def main() -> int:
         print("ERROR: GPT/PGPT and scatter geometry does not match for comparable partitions.")
         return 1
     if comparison.get("unverified_partitions"):
-        print("ERROR: PGPT contains unmapped ranges for scatter partitions:",
+        print("PGPT ranges still unverified:",
               ", ".join(comparison["unverified_partitions"]))
-        return 1
+    if comparison.get("blocking_unverified_partitions"):
+        print("ERROR: required scatter geometry is not verified for PGPT partitions:",
+              ", ".join(comparison["blocking_unverified_partitions"]))
         return 1
     avb = report["avb_descriptors"]
     expected_avb = {"vbmeta.img", "vbmeta_system.img", "vbmeta_vendor.img"}

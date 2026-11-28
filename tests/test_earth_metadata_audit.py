@@ -99,6 +99,35 @@ class GptAuditTests(unittest.TestCase):
             self.assertEqual(comparison["matched_names"], 1)
             self.assertEqual(comparison["unverified_partitions"], ["userdata"])
 
+
+    def test_non_downloadable_sentinel_entries_remain_unverified_without_blocking(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "PGPT_EMMC"
+            blob = bytearray(make_mediatek_pgpt())
+            for index, (name, first, last) in enumerate((
+                ("otp", 0, 88064), ("flashinfo", 0, 32768)
+            ), start=2):
+                row = bytearray(128)
+                row[:32] = ("gpt" + f"{index + 1:029x}").encode("ascii")
+                struct.pack_into("<QQQ", row, 32, first, last, 0)
+                encoded = name.encode("utf-16le")
+                row[56:56 + len(encoded)] = encoded
+                blob[1024 + index * 128:1024 + (index + 1) * 128] = row
+            path.write_bytes(blob)
+            result = audit_gpt(path)
+            comparison = compare_gpt_scatter(result, {"status": "parsed", "partitions": [
+                {"partition_name": "misc", "linear_start_addr": "0x8000", "partition_size": "0x80000", "is_download": "true"},
+                {"partition_name": "userdata", "linear_start_addr": "0x100000", "partition_size": "0x200000", "is_download": "true"},
+                {"partition_name": "otp", "linear_start_addr": "0xFFFF01d8", "partition_size": "0x2b00000", "is_download": "false"},
+                {"partition_name": "flashinfo", "linear_start_addr": "0xFFFF0080", "partition_size": "0x1000000", "is_download": "false"}
+            ]})
+            self.assertEqual(comparison["unverified_partitions"], ["flashinfo", "otp", "userdata"])
+            self.assertEqual(comparison["blocking_unverified_partitions"], ["userdata"])
+            reasons = {x["partition"]: x["reason"] for x in comparison["unverified_partition_details"]}
+            self.assertEqual(reasons["otp"], "non_physical_scatter_sentinel")
+            self.assertEqual(reasons["flashinfo"], "non_physical_scatter_sentinel")
+            self.assertEqual(reasons["userdata"], "required_geometry_unverified")
+
     def test_rejects_corrupt_gpt_header_crc(self):
         blob = bytearray(make_gpt())
         blob[512 + 16] ^= 0x01
